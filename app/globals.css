@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;1,300;1,400&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #1A1A16;
+  --charcoal: #2C2C24;
+  --smoke: #6B6B66;
+  --sand: #C9C0B0;
+  --stone: #E8E4DC;
+  --paper: #F7F5F0;
+  --copper: #A87E5E;
+  --copper-light: #f0e8df;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--charcoal);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--copper) !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--stone);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sand);
+  border-radius: 2px;
+}
+
+/* Transitions */
+.transition-default {
+  transition: all 0.15s ease;
+}
+
+/* Copper rule divider */
+.copper-rule {
+  height: 1px;
+  background: var(--copper);
+  opacity: 0.3;
+  margin: 2rem 0;
+}
+
+.sand-rule {
+  height: 0.5px;
+  background: var(--sand);
+  margin: 1.5rem 0;
+}
