@@ -23,21 +23,40 @@ export default function LoginPage() {
   }, [])
 
   const handleSubmit = async () => {
-    setError('')
-    if (!email || !password) {
-      setError('Please enter your email and password.')
-      return
-    }
-    if (!email.includes('@')) {
-      setError('That does not look like a valid email address.')
-      return
-    }
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 1400))
-    setLoading(false)
-    setError('No account found with that email. Check the details and try again.')
+  setError('')
+  if (!email || !password) {
+    setError('Please enter your email and password.')
+    return
   }
-
+  if (!email.includes('@')) {
+    setError('That does not look like a valid email address.')
+    return
+  }
+  setLoading(true)
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }
+    )
+    const data = await res.json()
+    if (!data.success) {
+      setError(data.message)
+      return
+    }
+    localStorage.setItem('accessToken', data.data.accessToken)
+    localStorage.setItem('refreshToken', data.data.refreshToken)
+    localStorage.setItem('customer', JSON.stringify(data.data.customer))
+    window.location.href = '/dashboard'
+  } catch {
+    setError('Something went wrong. Please try again.')
+  } finally {
+    setLoading(false)
+  }
+}
   const focusBorder = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.style.borderColor = '#C5855A'
   }

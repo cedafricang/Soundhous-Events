@@ -50,14 +50,40 @@ export default function SignupPage() {
   }
 
   const handleSubmit = async () => {
-    const e = validate()
-    setErrors(e)
-    if (Object.keys(e).length > 0) return
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 1600))
+  const e = validate()
+  setErrors(e)
+  if (Object.keys(e).length > 0) return
+  setLoading(true)
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          phone,
+          password,
+        }),
+      }
+    )
+    const data = await res.json()
+    if (!data.success) {
+      setErrors({ email: data.message })
+      return
+    }
+    localStorage.setItem('accessToken', data.data.accessToken)
+    localStorage.setItem('refreshToken', data.data.refreshToken)
+    localStorage.setItem('customer', JSON.stringify(data.data.customer))
+    window.location.href = '/dashboard'
+  } catch {
+    setErrors({ email: 'Something went wrong. Please try again.' })
+  } finally {
     setLoading(false)
-    // On success: router.push('/dashboard')
   }
+}
 
   const baseInput: React.CSSProperties = {
     width: '100%',

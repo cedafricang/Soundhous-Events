@@ -7,17 +7,48 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async () => {
-    setError('')
-    if (!email || !password) {
-      setError('Please enter your credentials.')
+ const handleSubmit = async () => {
+  setError('')
+  if (!email || !password) {
+    setError('Please enter your credentials.')
+    return
+  }
+  setLoading(true)
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'}/api/auth/login`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }
+    )
+    const data = await res.json()
+    if (!data.success) {
+      setError(data.message || 'Invalid credentials.')
       return
     }
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
+    // Check if this email is an admin
+    const adminEmails = [
+      'experience@soundhous.com',
+      'marketing@soundhous.com',
+      'sadediran@ced.africa',
+    ]
+    if (!adminEmails.includes(data.data.customer.email.toLowerCase())) {
+      setError('You do not have admin access.')
+      return
+    }
+    localStorage.setItem('accessToken', data.data.accessToken)
+    localStorage.setItem('refreshToken', data.data.refreshToken)
+    localStorage.setItem('customer', JSON.stringify(data.data.customer))
+    localStorage.setItem('isAdmin', 'true')
+    window.location.href = '/admin'
+  } catch {
+    setError('Something went wrong. Please try again.')
+  } finally {
     setLoading(false)
-    setError('Invalid credentials.')
   }
+}
 
   return (
     <div style={{ minHeight: '100vh', background: '#0E0C0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans, sans-serif' }}>

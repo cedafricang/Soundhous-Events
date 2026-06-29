@@ -1,78 +1,49 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type AdminTab = 'overview' | 'bookings' | 'customers' | 'points' | 'clubs' | 'notifications' | 'reports' | 'settings'
-type PaymentType = 'cash' | 'points' | 'complimentary' | 'club'
-type Tier = 'member' | 'silver' | 'gold' | 'platinum'
+type PaymentType = 'cash' | 'points' | 'complimentary-tier' | 'club-member' | 'admin-grant'
+type Tier = 'reserve-member' | 'silver' | 'gold' | 'platinum'
 
-interface AdminBooking {
-  id: string
-  customerName: string
-  room: string
-  date: string
-  timeSlot: string
-  guestCount: number
-  amountPaid: number
-  pointsUsed: number
-  paymentType: PaymentType
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
 const ROOMS = [
   { id: 'private-cinema', name: 'Private Cinema', price: 500000 },
   { id: 'hi-fi-room',     name: 'Hi-Fi Room',      price: 450000 },
   { id: 'media-room',     name: 'Media Room',       price: 450000 },
 ]
 
-const ADMIN_BOOKINGS: AdminBooking[] = [
-  { id: 'RES-001', customerName: 'Adebayo Okonkwo',  room: 'private-cinema', date: '2026-07-22', timeSlot: '6:00pm',  guestCount: 5, amountPaid: 500000, pointsUsed: 0,    paymentType: 'cash' },
-  { id: 'RES-002', customerName: 'Chioma Eze',        room: 'hi-fi-room',     date: '2026-07-21', timeSlot: '2:00pm',  guestCount: 3, amountPaid: 450000, pointsUsed: 0,    paymentType: 'cash' },
-  { id: 'RES-003', customerName: 'Emeka Nwosu',       room: 'media-room',     date: '2026-07-20', timeSlot: '4:00pm',  guestCount: 2, amountPaid: 0,      pointsUsed: 5000, paymentType: 'points' },
-  { id: 'RES-004', customerName: 'Funmi Adeyemi',     room: 'private-cinema', date: '2026-07-19', timeSlot: '10:00am', guestCount: 6, amountPaid: 0,      pointsUsed: 0,    paymentType: 'complimentary' },
-  { id: 'RES-005', customerName: 'Tunde Bello',       room: 'hi-fi-room',     date: '2026-07-18', timeSlot: '12:00pm', guestCount: 4, amountPaid: 360000, pointsUsed: 0,    paymentType: 'club' },
-]
-
-const MOCK_CUSTOMERS = [
-  { id: 'c1', name: 'Adebayo Okonkwo', email: 'adebayo@example.com', tier: 'gold'     as Tier, points: 4210,  spend: 6200000,  bookings: 12 },
-  { id: 'c2', name: 'Chioma Eze',       email: 'chioma@example.com',  tier: 'platinum' as Tier, points: 12400, spend: 14800000, bookings: 28 },
-  { id: 'c3', name: 'Emeka Nwosu',      email: 'emeka@example.com',   tier: 'silver'   as Tier, points: 1850,  spend: 3200000,  bookings: 6  },
-  { id: 'c4', name: 'Funmi Adeyemi',    email: 'funmi@example.com',   tier: 'member'   as Tier, points: 420,   spend: 840000,   bookings: 2  },
-  { id: 'c5', name: 'Tunde Bello',      email: 'tunde@example.com',   tier: 'gold'     as Tier, points: 3600,  spend: 7100000,  bookings: 15 },
-]
-
 const NAV_ITEMS: { id: AdminTab; label: string; iconPath: string }[] = [
-  { id: 'overview',       label: 'Overview',       iconPath: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z' },
-  { id: 'bookings',       label: 'Bookings',       iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-  { id: 'customers',      label: 'Customers',      iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { id: 'points',         label: 'Points & Tiers', iconPath: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { id: 'clubs',          label: 'Club Members',   iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
-  { id: 'notifications',  label: 'Notifications',  iconPath: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-  { id: 'reports',        label: 'Reports',        iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-  { id: 'settings',       label: 'Settings',       iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+  { id: 'overview',      label: 'Overview',       iconPath: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z' },
+  { id: 'bookings',      label: 'Bookings',       iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+  { id: 'customers',     label: 'Customers',      iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+  { id: 'points',        label: 'Points & Tiers', iconPath: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { id: 'clubs',         label: 'Club Members',   iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
+  { id: 'notifications', label: 'Notifications',  iconPath: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
+  { id: 'reports',       label: 'Reports',        iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+  { id: 'settings',      label: 'Settings',       iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
 ]
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatCurrency(n: number) { return '₦' + n.toLocaleString('en-NG') }
 function getRoomName(id: string) { return ROOMS.find(r => r.id === id)?.name || id }
 
-const TIER_CONFIG: Record<Tier, { label: string; color: string; dot: string }> = {
-  member:   { label: 'Reserve Member', color: 'rgba(245,240,232,0.45)', dot: 'rgba(245,240,232,0.4)' },
-  silver:   { label: 'Silver',          color: '#B8C4CC',                dot: '#B8C4CC' },
-  gold:     { label: 'Gold',            color: '#C5855A',                dot: '#C5855A' },
-  platinum: { label: 'Platinum',        color: '#D4C5A9',                dot: '#D4C5A9' },
+const TIER_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+  'reserve-member': { label: 'Reserve Member', color: 'rgba(245,240,232,0.45)', dot: 'rgba(245,240,232,0.4)' },
+  'silver':         { label: 'Silver',          color: '#B8C4CC',                dot: '#B8C4CC' },
+  'gold':           { label: 'Gold',            color: '#C5855A',                dot: '#C5855A' },
+  'platinum':       { label: 'Platinum',        color: '#D4C5A9',                dot: '#D4C5A9' },
 }
 
-const PAY_CONFIG: Record<PaymentType, { label: string; color: string; bg: string; border: string }> = {
-  cash:          { label: 'Paid',          color: '#C5855A',                bg: 'rgba(197,133,90,0.08)',  border: 'rgba(197,133,90,0.25)' },
-  points:        { label: 'Redeemed',      color: '#B8C4CC',                bg: 'rgba(184,196,204,0.08)', border: 'rgba(184,196,204,0.25)' },
-  complimentary: { label: 'Complimentary', color: 'rgba(245,240,232,0.55)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.1)'  },
-  club:          { label: 'Club',          color: '#D4C5A9',                bg: 'rgba(212,197,169,0.08)', border: 'rgba(212,197,169,0.25)' },
+const PAY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  'cash':             { label: 'Paid',          color: '#C5855A',                bg: 'rgba(197,133,90,0.08)',  border: 'rgba(197,133,90,0.25)' },
+  'points':           { label: 'Redeemed',      color: '#B8C4CC',                bg: 'rgba(184,196,204,0.08)', border: 'rgba(184,196,204,0.25)' },
+  'complimentary-tier': { label: 'Complimentary', color: 'rgba(245,240,232,0.55)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.1)' },
+  'club-member':      { label: 'Club',          color: '#D4C5A9',                bg: 'rgba(212,197,169,0.08)', border: 'rgba(212,197,169,0.25)' },
+  'admin-grant':      { label: 'Admin grant',   color: 'rgba(245,240,232,0.4)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.1)' },
 }
 
-// ─── Small components ─────────────────────────────────────────────────────────
-function TierPill({ tier }: { tier: Tier }) {
-  const c = TIER_CONFIG[tier]
+function TierPill({ tier }: { tier: string }) {
+  const c = TIER_CONFIG[tier] || TIER_CONFIG['reserve-member']
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', border: `1px solid ${c.color}40`, borderRadius: 2, fontSize: 10, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', color: c.color, background: `${c.color}10`, fontWeight: 500, whiteSpace: 'nowrap' }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
@@ -81,8 +52,8 @@ function TierPill({ tier }: { tier: Tier }) {
   )
 }
 
-function PayPill({ type }: { type: PaymentType }) {
-  const c = PAY_CONFIG[type]
+function PayPill({ type }: { type: string }) {
+  const c = PAY_CONFIG[type] || PAY_CONFIG['cash']
   return (
     <span style={{ display: 'inline-block', padding: '3px 9px', border: `1px solid ${c.border}`, borderRadius: 2, fontSize: 10, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', color: c.color, background: c.bg, fontWeight: 500, whiteSpace: 'nowrap' }}>
       {c.label}
@@ -101,23 +72,16 @@ function StatCard({ label, value, sub, accent = false }: { label: string; value:
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 16, fontWeight: 500 }}>
-      {children}
-    </p>
-  )
+  return <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 16, fontWeight: 500 }}>{children}</p>
 }
 
 function InputField({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>{label}</label>
-      <input
-        {...props}
-        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', ...props.style }}
+      <input {...props} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', ...props.style }}
         onFocus={e => (e.target.style.borderColor = '#C5855A')}
-        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-      />
+        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')} />
     </div>
   )
 }
@@ -126,26 +90,20 @@ function SelectField({ label, children, ...props }: { label: string } & React.Se
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>{label}</label>
-      <select
-        {...props}
-        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
+      <select {...props} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
         onFocus={e => (e.target.style.borderColor = '#C5855A')}
-        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-      >
+        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}>
         {children}
       </select>
     </div>
   )
 }
 
-function PrimaryBtn({ onClick, children, full = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean }) {
+function PrimaryBtn({ onClick, children, full = false, disabled = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean; disabled?: boolean }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: '#C5855A', color: '#0E0C0A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
-      onMouseEnter={e => ((e.target as HTMLElement).style.background = '#D4946A')}
-      onMouseLeave={e => ((e.target as HTMLElement).style.background = '#C5855A')}
-    >
+    <button onClick={onClick} disabled={disabled} style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: disabled ? 'rgba(197,133,90,0.4)' : '#C5855A', color: '#0E0C0A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
+      onMouseEnter={e => { if (!disabled) (e.target as HTMLElement).style.background = '#D4946A' }}
+      onMouseLeave={e => { if (!disabled) (e.target as HTMLElement).style.background = '#C5855A' }}>
       {children}
     </button>
   )
@@ -153,18 +111,14 @@ function PrimaryBtn({ onClick, children, full = false }: { onClick?: () => void;
 
 function GhostBtn({ onClick, children, full = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: 'transparent', color: 'rgba(245,240,232,0.45)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}
+    <button onClick={onClick} style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: 'transparent', color: 'rgba(245,240,232,0.45)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}
       onMouseEnter={e => { (e.target as HTMLElement).style.color = '#F5F0E8'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.5)' }}
-      onMouseLeave={e => { (e.target as HTMLElement).style.color = 'rgba(245,240,232,0.45)'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.2)' }}
-    >
+      onMouseLeave={e => { (e.target as HTMLElement).style.color = 'rgba(245,240,232,0.45)'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.2)' }}>
       {children}
     </button>
   )
 }
 
-// ─── Table components ─────────────────────────────────────────────────────────
 function Table({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return (
     <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
@@ -172,11 +126,7 @@ function Table({ headers, children }: { headers: string[]; children: React.React
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid rgba(197,133,90,0.1)', background: 'rgba(255,255,255,0.02)' }}>
-              {headers.map(h => (
-                <th key={h} style={{ padding: '12px 18px', textAlign: 'left', fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {h}
-                </th>
-              ))}
+              {headers.map(h => <th key={h} style={{ padding: '12px 18px', textAlign: 'left', fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>)}
             </tr>
           </thead>
           <tbody>{children}</tbody>
@@ -189,89 +139,213 @@ function Table({ headers, children }: { headers: string[]; children: React.React
 function TR({ children }: { children: React.ReactNode }) {
   const [hov, setHov] = useState(false)
   return (
-    <tr
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ borderBottom: '1px solid rgba(197,133,90,0.06)', background: hov ? 'rgba(197,133,90,0.03)' : 'transparent', transition: 'background 0.15s' }}
-    >
+    <tr onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ borderBottom: '1px solid rgba(197,133,90,0.06)', background: hov ? 'rgba(197,133,90,0.03)' : 'transparent', transition: 'background 0.15s' }}>
       {children}
     </tr>
   )
 }
 
 function TD({ children, mono = false }: { children: React.ReactNode; mono?: boolean }) {
-  return (
-    <td style={{ padding: '13px 18px', fontFamily: mono ? 'DM Mono, monospace' : 'DM Sans, sans-serif', fontSize: mono ? 11 : 13, color: 'rgba(245,240,232,0.65)', whiteSpace: 'nowrap' }}>
-      {children}
-    </td>
-  )
+  return <td style={{ padding: '13px 18px', fontFamily: mono ? 'DM Mono, monospace' : 'DM Sans, sans-serif', fontSize: mono ? 11 : 13, color: 'rgba(245,240,232,0.65)', whiteSpace: 'nowrap' }}>{children}</td>
 }
 
 function ActionBtn({ onClick, children }: { onClick?: () => void; children: React.ReactNode }) {
   const [hov, setHov] = useState(false)
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: hov ? '#C5855A' : 'rgba(245,240,232,0.3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0', transition: 'color 0.2s', outline: 'none' }}
-    >
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: hov ? '#C5855A' : 'rgba(245,240,232,0.3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0', transition: 'color 0.2s', outline: 'none' }}>
       {children}
     </button>
   )
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
 function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
-      <div style={{ background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+      <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{title}</h3>
           <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65 }}>{subtitle}</p>
         </div>
         {children}
-        <button
-          onClick={onClose}
-          style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 18, lineHeight: 1 }}
-        >
-          ×
-        </button>
+        <button onClick={onClose} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
     </div>
   )
 }
 
-// ─── Filter pills ─────────────────────────────────────────────────────────────
 function FilterPill({ label, active, onClick }: { label: string; active?: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ padding: '7px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: active ? '1px solid #C5855A' : '1px solid rgba(197,133,90,0.15)', borderRadius: 2, background: active ? 'rgba(197,133,90,0.1)' : 'transparent', color: active ? '#C5855A' : 'rgba(245,240,232,0.4)', transition: 'all 0.2s', outline: 'none' }}
-    >
+    <button onClick={onClick} style={{ padding: '7px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: active ? '1px solid #C5855A' : '1px solid rgba(197,133,90,0.15)', borderRadius: 2, background: active ? 'rgba(197,133,90,0.1)' : 'transparent', color: active ? '#C5855A' : 'rgba(245,240,232,0.4)', transition: 'all 0.2s', outline: 'none' }}>
       {label}
     </button>
   )
 }
 
-// ─── Nav icon ─────────────────────────────────────────────────────────────────
 function NavIcon({ path }: { path: string }) {
+  return <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4}><path strokeLinecap="round" strokeLinejoin="round" d={path} /></svg>
+}
+
+function ClubsTab({ token }: { token: string | null }) {
+  const [members, setMembers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [newNumber, setNewNumber] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [addSuccess, setAddSuccess] = useState('')
+
+  useEffect(() => {
+    fetchMembers()
+  }, [])
+
+  const fetchMembers = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/clubs/ikoyi/members?limit=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const data = await res.json()
+      if (data.success) setMembers(data.data.members)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
+
+  const handleAdd = async () => {
+    setAddError('')
+    setAddSuccess('')
+    if (!newNumber.trim()) {
+      setAddError('Please enter a membership number.')
+      return
+    }
+    setAdding(true)
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/clubs/ikoyi/members`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ membershipNumber: newNumber.trim().toUpperCase() }),
+        }
+      )
+      const data = await res.json()
+      if (!data.success) {
+        setAddError(data.message || 'Failed to add member.')
+        return
+      }
+      setAddSuccess(`${newNumber.trim().toUpperCase()} added successfully.`)
+      setNewNumber('')
+      fetchMembers()
+    } catch { setAddError('Something went wrong.') }
+    finally { setAdding(false) }
+  }
+
   return (
-    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4}>
-      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
-    </svg>
+    <div>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 36 }}>
+        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Total members</p>
+          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', lineHeight: 1, marginBottom: 6 }}>{members.length}</p>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>Ikoyi Club</p>
+        </div>
+        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Complimentary used</p>
+          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#C5855A', lineHeight: 1, marginBottom: 6 }}>{members.filter(m => m.complimentaryUsed).length}</p>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>of {members.length} members</p>
+        </div>
+        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Converted to Reserve</p>
+          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', lineHeight: 1, marginBottom: 6 }}>{members.filter(m => m.customerEmail).length}</p>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>have Reserve accounts</p>
+        </div>
+      </div>
+
+      {/* Add member form */}
+      <div style={{ marginBottom: 32 }}>
+        <SectionLabel>Add Ikoyi Club member</SectionLabel>
+        <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: 2, padding: '24px', background: 'rgba(255,255,255,0.01)', maxWidth: 480 }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: 20 }}>
+            Add a membership number to allow that Ikoyi Club member to verify and book through the Reserve platform.
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Membership number</label>
+              <input
+                type="text"
+                value={newNumber}
+                onChange={e => { setNewNumber(e.target.value); setAddError(''); setAddSuccess('') }}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                placeholder="e.g. IK-0001"
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box' }}
+                onFocus={e => (e.target.style.borderColor = '#C5855A')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
+              />
+            </div>
+            <PrimaryBtn onClick={handleAdd} disabled={adding}>
+              {adding ? 'Adding...' : 'Add member'}
+            </PrimaryBtn>
+          </div>
+          {addError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginTop: 10, fontFamily: 'DM Sans' }}>{addError}</p>}
+          {addSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginTop: 10, fontFamily: 'DM Sans' }}>✓ {addSuccess}</p>}
+        </div>
+      </div>
+
+      {/* Members table */}
+      <SectionLabel>Registered members</SectionLabel>
+      {loading ? (
+        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+      ) : members.length === 0 ? (
+        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No members added yet.</p>
+      ) : (
+        <Table headers={['Membership no.', 'Complimentary', 'Reserve account', 'Added']}>
+          {members.map(m => (
+            <TR key={m.id}>
+              <TD mono>{m.membershipNumber}</TD>
+              <TD>
+                <span style={{ padding: '3px 9px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: m.complimentaryUsed ? 'rgba(255,255,255,0.04)' : 'rgba(197,133,90,0.08)', color: m.complimentaryUsed ? 'rgba(245,240,232,0.3)' : '#C5855A', border: `1px solid ${m.complimentaryUsed ? 'rgba(255,255,255,0.08)' : 'rgba(197,133,90,0.25)'}` }}>
+                  {m.complimentaryUsed ? 'Used' : 'Available'}
+                </span>
+              </TD>
+              <TD>{m.customerEmail || <span style={{ color: 'rgba(245,240,232,0.25)' }}>Not registered</span>}</TD>
+              <TD mono>{new Date(m.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
+            </TR>
+          ))}
+        </Table>
+      )}
+    </div>
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
+
+  // Data state
+  const [overview, setOverview] = useState<any>(null)
+  const [bookings, setBookings] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [reports, setReports] = useState<any>(null)
+  const [loadingOverview, setLoadingOverview] = useState(true)
+  const [loadingBookings, setLoadingBookings] = useState(false)
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [loadingReports, setLoadingReports] = useState(false)
+
+  // Modal state
   const [grantModal, setGrantModal] = useState(false)
   const [adjustModal, setAdjustModal] = useState(false)
-  const [bookingFilter, setBookingFilter] = useState('All')
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [pointsAmount, setPointsAmount] = useState('')
   const [pointsReason, setPointsReason] = useState('')
+  const [adjustLoading, setAdjustLoading] = useState(false)
+  const [adjustSuccess, setAdjustSuccess] = useState('')
+  const [adjustError, setAdjustError] = useState('')
+
+  const [bookingFilter, setBookingFilter] = useState('All')
+  const [customerSearch, setCustomerSearch] = useState('')
   const [notifChannel, setNotifChannel] = useState('Both')
 
   useEffect(() => {
@@ -279,204 +353,232 @@ export default function AdminPage() {
     link.rel = 'stylesheet'
     link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap'
     document.head.appendChild(link)
+
+    const t = localStorage.getItem('accessToken')
+    if (!t) { window.location.href = '/admin/login'; return }
+    const isAdmin = localStorage.getItem('isAdmin')
+    if (!isAdmin) { window.location.href = '/admin/login'; return }
+    setToken(t)
+
     return () => { document.head.removeChild(link) }
   }, [])
 
-  const page: React.CSSProperties = { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
+  useEffect(() => {
+    if (!token) return
+    fetchOverview()
+  }, [token])
 
-  // ── Sidebar ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!token) return
+    if (tab === 'bookings' && bookings.length === 0) fetchBookings()
+    if (tab === 'customers' && customers.length === 0) fetchCustomers()
+    if (tab === 'reports' && !reports) fetchReports()
+  }, [tab, token])
+
+  const authHeaders = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
+
+  const fetchOverview = async () => {
+    setLoadingOverview(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/overview`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setOverview(data.data)
+    } catch (err) { console.error(err) }
+    finally { setLoadingOverview(false) }
+  }
+
+  const fetchBookings = async () => {
+    setLoadingBookings(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/bookings?limit=50`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setBookings(data.data.bookings)
+    } catch (err) { console.error(err) }
+    finally { setLoadingBookings(false) }
+  }
+
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/customers?limit=50`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setCustomers(data.data.customers)
+    } catch (err) { console.error(err) }
+    finally { setLoadingCustomers(false) }
+  }
+
+  const fetchReports = async () => {
+    setLoadingReports(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/reports?period=month`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setReports(data.data)
+    } catch (err) { console.error(err) }
+    finally { setLoadingReports(false) }
+  }
+
+  const handleAdjustPoints = async () => {
+    if (!selectedCustomer || !pointsAmount || !pointsReason) return
+    setAdjustLoading(true)
+    setAdjustError('')
+    setAdjustSuccess('')
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/customers/${selectedCustomer.id}/points`,
+        {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({ points: Number(pointsAmount), reason: pointsReason }),
+        }
+      )
+      const data = await res.json()
+      if (!data.success) { setAdjustError(data.message); return }
+      setAdjustSuccess(`Points adjusted. New balance: ${data.data.newBalance.toLocaleString()}`)
+      setPointsAmount('')
+      setPointsReason('')
+      fetchCustomers()
+    } catch { setAdjustError('Something went wrong.') }
+    finally { setAdjustLoading(false) }
+  }
+
+  const filteredBookings = bookings.filter(b => {
+    if (bookingFilter === 'All') return true
+    return getRoomName(b.room) === bookingFilter
+  })
+
+  const filteredCustomers = customers.filter(c => {
+    if (!customerSearch) return true
+    const q = customerSearch.toLowerCase()
+    return (
+      c.email?.toLowerCase().includes(q) ||
+      c.firstName?.toLowerCase().includes(q) ||
+      c.lastName?.toLowerCase().includes(q)
+    )
+  })
+
+  const page: React.CSSProperties = { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
+  const contentPad: React.CSSProperties = { padding: 'clamp(24px,3vw,36px) clamp(20px,3vw,36px)' }
+
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <aside style={{ width: mobile ? '100%' : 220, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0906', borderRight: '1px solid rgba(197,133,90,0.1)' }}>
-      {/* Logo */}
       <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(197,133,90,0.08)' }}>
-        <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 19, color: '#F5F0E8', marginBottom: 4 }}>
-          Soundhous <span style={{ color: '#C5855A' }}>Reserve</span>
-        </p>
-        <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(197,133,90,0.55)', fontWeight: 500 }}>
-          Admin Panel
-        </p>
+        <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 19, color: '#F5F0E8', marginBottom: 4 }}>Soundhous <span style={{ color: '#C5855A' }}>Reserve</span></p>
+        <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(197,133,90,0.55)', fontWeight: 500 }}>Admin Panel</p>
       </div>
-
-      {/* Nav items */}
       <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
         {NAV_ITEMS.map(item => {
           const active = tab === item.id
           return (
-            <button
-              key={item.id}
-              onClick={() => { setTab(item.id); setSidebarOpen(false) }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '11px 20px',
-                fontSize: 12,
-                fontFamily: 'DM Sans',
-                fontWeight: active ? 500 : 400,
-                letterSpacing: '0.04em',
-                textAlign: 'left',
-                cursor: 'pointer',
-                border: 'none',
-                borderLeft: active ? '2px solid #C5855A' : '2px solid transparent',
-                background: active ? 'rgba(197,133,90,0.07)' : 'transparent',
-                color: active ? '#C5855A' : 'rgba(245,240,232,0.4)',
-                transition: 'all 0.2s',
-                outline: 'none',
-                paddingLeft: active ? 18 : 18,
-              }}
+            <button key={item.id} onClick={() => { setTab(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', fontSize: 12, fontFamily: 'DM Sans', fontWeight: active ? 500 : 400, letterSpacing: '0.04em', textAlign: 'left', cursor: 'pointer', border: 'none', borderLeft: active ? '2px solid #C5855A' : '2px solid transparent', background: active ? 'rgba(197,133,90,0.07)' : 'transparent', color: active ? '#C5855A' : 'rgba(245,240,232,0.4)', transition: 'all 0.2s', outline: 'none' }}
               onMouseEnter={e => { if (!active) (e.currentTarget.style.color = 'rgba(245,240,232,0.75)') }}
-              onMouseLeave={e => { if (!active) (e.currentTarget.style.color = 'rgba(245,240,232,0.4)') }}
-            >
-              <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0, color: active ? '#C5855A' : 'inherit' }}>
-                <NavIcon path={item.iconPath} />
-              </span>
+              onMouseLeave={e => { if (!active) (e.currentTarget.style.color = 'rgba(245,240,232,0.4)') }}>
+              <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0, color: active ? '#C5855A' : 'inherit' }}><NavIcon path={item.iconPath} /></span>
               {item.label}
             </button>
           )
         })}
       </nav>
-
-      {/* Footer */}
       <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(197,133,90,0.08)' }}>
-        <a
-          href="/"
-          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', textDecoration: 'none', transition: 'color 0.2s' }}
+        <button onClick={() => { localStorage.clear(); window.location.href = '/admin/login' }} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           onMouseEnter={e => ((e.target as HTMLElement).style.color = 'rgba(245,240,232,0.65)')}
-          onMouseLeave={e => ((e.target as HTMLElement).style.color = 'rgba(245,240,232,0.25)')}
-        >
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to site
-        </a>
+          onMouseLeave={e => ((e.target as HTMLElement).style.color = 'rgba(245,240,232,0.25)')}>
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          Sign out
+        </button>
       </div>
     </aside>
   )
 
-  // ── Page content ─────────────────────────────────────────────────────────────
-  const contentPad: React.CSSProperties = { padding: 'clamp(24px,3vw,36px) clamp(20px,3vw,36px)' }
-
   return (
     <div style={page}>
+      <div style={{ display: 'none' }} className="admin-sidebar-desktop"><Sidebar /></div>
 
-      {/* Desktop sidebar */}
-      <div style={{ display: 'none' }} className="admin-sidebar-desktop">
-        <Sidebar />
-      </div>
-
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }}>
-          <div style={{ width: 240, flexShrink: 0 }}>
-            <Sidebar mobile />
-          </div>
+          <div style={{ width: 240, flexShrink: 0 }}><Sidebar mobile /></div>
           <div style={{ flex: 1, background: 'rgba(0,0,0,0.6)' }} onClick={() => setSidebarOpen(false)} />
         </div>
       )}
 
-      {/* Main */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-
-        {/* Top bar */}
-        <header
-          style={{
-            height: 60,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 clamp(16px,3vw,32px)',
-            borderBottom: '1px solid rgba(197,133,90,0.1)',
-            background: 'rgba(10,9,6,0.9)',
-            backdropFilter: 'blur(12px)',
-            flexShrink: 0,
-            gap: 16,
-          }}
-        >
+        <header style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(16px,3vw,32px)', borderBottom: '1px solid rgba(197,133,90,0.1)', background: 'rgba(10,9,6,0.9)', backdropFilter: 'blur(12px)', flexShrink: 0, gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', outline: 'none' }}
-              className="admin-mobile-menu-btn"
-            >
-              {[0,1,2].map(i => (
-                <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'rgba(245,240,232,0.45)' }} />
-              ))}
+            <button onClick={() => setSidebarOpen(true)} className="admin-mobile-menu-btn" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', outline: 'none' }}>
+              {[0,1,2].map(i => <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'rgba(245,240,232,0.45)' }} />)}
             </button>
-
-            {/* Breadcrumb */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', fontWeight: 500 }}>
-                Admin
-              </p>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', fontWeight: 500 }}>Admin</p>
               <span style={{ color: 'rgba(197,133,90,0.3)', fontSize: 12 }}>·</span>
-              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.75)', fontWeight: 500 }}>
-                {NAV_ITEMS.find(n => n.id === tab)?.label}
-              </p>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.75)', fontWeight: 500 }}>{NAV_ITEMS.find(n => n.id === tab)?.label}</p>
             </div>
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'rgba(245,240,232,0.2)' }}>
-              June 2026
-            </p>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                border: '1px solid rgba(197,133,90,0.3)',
-                background: 'rgba(197,133,90,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontFamily: 'DM Sans',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#C5855A',
-              }}
-            >
-              A
-            </div>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'rgba(245,240,232,0.2)' }}>{new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(197,133,90,0.3)', background: 'rgba(197,133,90,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, color: '#C5855A' }}>A</div>
           </div>
         </header>
 
-        {/* Scrollable content */}
         <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           <div style={contentPad}>
 
-            {/* ══ OVERVIEW ══════════════════════════════════════════════════ */}
+            {/* ── OVERVIEW ── */}
             {tab === 'overview' && (
               <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 36 }}>
-                  <StatCard label="Bookings this month" value="34"    sub="↑ 12 from last month" accent />
-                  <StatCard label="Revenue this month"  value="₦14.2M" sub="₦500k from refreshments" />
-                  <StatCard label="Active members"      value="218"   sub="12 Platinum · 38 Gold" />
-                  <StatCard label="Points redeemed"     value="42k"   sub="8 free rooms this month" />
-                </div>
+                {loadingOverview ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+                ) : overview ? (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 36 }}>
+                      <StatCard label="Bookings this month" value={String(overview.stats.bookingsThisMonth)} sub="confirmed sessions" accent />
+                      <StatCard label="Revenue this month" value={`₦${(overview.stats.revenueThisMonth / 1000000).toFixed(1)}M`} sub="cash payments only" />
+                      <StatCard label="Total members" value={String(overview.stats.totalMembers)} sub="all tiers" />
+                      <StatCard label="Points redeemed" value={overview.stats.pointsRedeemedThisMonth.toLocaleString()} sub="this month" />
+                    </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <SectionLabel>Recent bookings</SectionLabel>
-                  <ActionBtn onClick={() => setTab('bookings')}>View all →</ActionBtn>
-                </div>
+                    <div style={{ marginBottom: 36 }}>
+                      <SectionLabel>Tier distribution</SectionLabel>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {overview.tierDistribution.map((t: any) => {
+                          const c = TIER_CONFIG[t.tier] || TIER_CONFIG['reserve-member']
+                          return (
+                            <div key={t.tier} style={{ padding: '16px 20px', border: `1px solid ${c.color}30`, borderRadius: 2, background: `${c.color}06`, minWidth: 120 }}>
+                              <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: c.color, marginBottom: 8, fontWeight: 500 }}>{c.label}</p>
+                              <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', fontWeight: 400, lineHeight: 1 }}>{t.count}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
 
-                <Table headers={['Customer', 'Room', 'Date & time', 'Type', 'Tier', '']}>
-                  {ADMIN_BOOKINGS.map(b => (
-                    <TR key={b.id}>
-                      <TD>{b.customerName}</TD>
-                      <TD>{getRoomName(b.room)}</TD>
-                      <TD mono>{b.date} · {b.timeSlot}</TD>
-                      <TD><PayPill type={b.paymentType} /></TD>
-                      <TD><TierPill tier="gold" /></TD>
-                      <TD><ActionBtn>View</ActionBtn></TD>
-                    </TR>
-                  ))}
-                </Table>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <SectionLabel>Recent bookings</SectionLabel>
+                      <ActionBtn onClick={() => setTab('bookings')}>View all →</ActionBtn>
+                    </div>
+
+                    {overview.recentBookings.length === 0 ? (
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No bookings yet.</p>
+                    ) : (
+                      <Table headers={['Customer', 'Room', 'Date & time', 'Type', 'Amount', 'Status']}>
+                        {overview.recentBookings.map((b: any) => (
+                          <TR key={b.id}>
+                            <TD>{b.customerName || b.customerEmail}</TD>
+                            <TD>{getRoomName(b.room)}</TD>
+                            <TD mono>{b.bookingDate} · {b.timeSlot}</TD>
+                            <TD><PayPill type={b.paymentType} /></TD>
+                            <TD mono>{b.amountPaid > 0 ? formatCurrency(b.amountPaid) : '—'}</TD>
+                            <TD>{b.status}</TD>
+                          </TR>
+                        ))}
+                      </Table>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Failed to load overview.</p>
+                )}
               </div>
             )}
 
-            {/* ══ BOOKINGS ══════════════════════════════════════════════════ */}
+            {/* ── BOOKINGS ── */}
             {tab === 'bookings' && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -485,426 +587,194 @@ export default function AdminPage() {
                       <FilterPill key={f} label={f} active={bookingFilter === f} onClick={() => setBookingFilter(f)} />
                     ))}
                   </div>
-                  <PrimaryBtn>+ Create booking</PrimaryBtn>
                 </div>
-
-                <Table headers={['ID', 'Customer', 'Room', 'Date', 'Time', 'Guests', 'Type', 'Amount', '']}>
-                  {ADMIN_BOOKINGS.map(b => (
-                    <TR key={b.id}>
-                      <TD mono>{b.id}</TD>
-                      <TD>{b.customerName}</TD>
-                      <TD>{getRoomName(b.room)}</TD>
-                      <TD mono>{b.date}</TD>
-                      <TD mono>{b.timeSlot}</TD>
-                      <TD>{b.guestCount}</TD>
-                      <TD><PayPill type={b.paymentType} /></TD>
-                      <TD mono>{b.amountPaid > 0 ? formatCurrency(b.amountPaid) : b.pointsUsed > 0 ? `${b.pointsUsed.toLocaleString()} pts` : '—'}</TD>
-                      <TD>
-                        <div style={{ display: 'flex', gap: 12 }}>
-                          <ActionBtn>View</ActionBtn>
-                          <ActionBtn>Reschedule</ActionBtn>
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </Table>
+                {loadingBookings ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+                ) : filteredBookings.length === 0 ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No bookings found.</p>
+                ) : (
+                  <Table headers={['Customer', 'Room', 'Date', 'Time', 'Guests', 'Type', 'Amount', 'Status']}>
+                    {filteredBookings.map(b => (
+                      <TR key={b.id}>
+                        <TD>{b.customerName || b.customerEmail}</TD>
+                        <TD>{getRoomName(b.room)}</TD>
+                        <TD mono>{b.bookingDate}</TD>
+                        <TD mono>{b.timeSlot}</TD>
+                        <TD>{b.guestCount}</TD>
+                        <TD><PayPill type={b.paymentType} /></TD>
+                        <TD mono>{b.amountPaid > 0 ? formatCurrency(b.amountPaid) : b.pointsUsed > 0 ? `${b.pointsUsed.toLocaleString()} pts` : '—'}</TD>
+                        <TD>{b.status}</TD>
+                      </TR>
+                    ))}
+                  </Table>
+                )}
               </div>
             )}
 
-            {/* ══ CUSTOMERS ═════════════════════════════════════════════════ */}
+            {/* ── CUSTOMERS ── */}
             {tab === 'customers' && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    placeholder="Search by name or email..."
+                  <input type="text" placeholder="Search by name or email..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.15)', borderRadius: 2, padding: '10px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', width: '100%', maxWidth: 280 }}
                     onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                    onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.15)')}
-                  />
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {['All', 'Platinum', 'Gold', 'Silver'].map(f => (
-                      <FilterPill key={f} label={f} onClick={() => {}} />
-                    ))}
-                  </div>
+                    onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.15)')} />
                 </div>
-
-                <Table headers={['Customer', 'Email', 'Tier', 'Points', 'Annual spend', 'Bookings', '']}>
-                  {MOCK_CUSTOMERS.map(c => (
-                    <TR key={c.id}>
-                      <TD>{c.name}</TD>
-                      <TD>{c.email}</TD>
-                      <TD><TierPill tier={c.tier} /></TD>
-                      <td style={{ padding: '13px 18px', fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 16, color: '#C5855A', whiteSpace: 'nowrap' }}>
-                        {c.points.toLocaleString()}
-                      </td>
-                      <TD mono>{formatCurrency(c.spend)}</TD>
-                      <TD>{c.bookings}</TD>
-                      <TD>
-                        <div style={{ display: 'flex', gap: 12 }}>
-                          <ActionBtn>View</ActionBtn>
-                          <ActionBtn onClick={() => setGrantModal(true)}>Grant</ActionBtn>
-                          <ActionBtn onClick={() => setAdjustModal(true)}>Points</ActionBtn>
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </Table>
+                {loadingCustomers ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+                ) : filteredCustomers.length === 0 ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No customers found.</p>
+                ) : (
+                  <Table headers={['Name', 'Email', 'Tier', 'Points', 'Annual spend', '']}>
+                    {filteredCustomers.map(c => (
+                      <TR key={c.id}>
+                        <TD>{c.firstName} {c.lastName}</TD>
+                        <TD>{c.email}</TD>
+                        <TD><TierPill tier={c.tier} /></TD>
+                        <td style={{ padding: '13px 18px', fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 16, color: '#C5855A', whiteSpace: 'nowrap' }}>{c.pointsBalance.toLocaleString()}</td>
+                        <TD mono>{formatCurrency(c.annualSpend)}</TD>
+                        <TD>
+                          <ActionBtn onClick={() => { setSelectedCustomer(c); setAdjustModal(true) }}>Adjust points</ActionBtn>
+                        </TD>
+                      </TR>
+                    ))}
+                  </Table>
+                )}
               </div>
             )}
 
-            {/* ══ POINTS & TIERS ════════════════════════════════════════════ */}
+            {/* ── POINTS ── */}
             {tab === 'points' && (
               <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 36 }}>
-                  <StatCard label="Points issued"         value="284,600" sub="This year" />
-                  <StatCard label="Points redeemed"       value="42,000"  sub="14.7% redemption rate" accent />
-                  <StatCard label="Pending expiry"        value="8,400"   sub="Within 90 days" />
-                  <StatCard label="Points expired"        value="1,200"   sub="This year" />
-                </div>
-
-                <div style={{ marginBottom: 32 }}>
-                  <SectionLabel>Tier distribution</SectionLabel>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                    {([
-                      { tier: 'platinum' as Tier, count: 12 },
-                      { tier: 'gold'     as Tier, count: 38 },
-                      { tier: 'silver'   as Tier, count: 64 },
-                      { tier: 'member'   as Tier, count: 104 },
-                    ] as const).map(t => {
-                      const c = TIER_CONFIG[t.tier]
-                      return (
-                        <div key={t.tier} style={{ padding: '20px 18px', border: `1px solid ${c.color}30`, borderRadius: 2, background: `${c.color}06` }}>
-                          <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: c.color, marginBottom: 10, fontWeight: 500 }}>{c.label}</p>
-                          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 32, color: '#F5F0E8', fontWeight: 400, lineHeight: 1, marginBottom: 4 }}>{t.count}</p>
-                          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>members</p>
+                {reports ? (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 36 }}>
+                      <StatCard label="Points issued" value={reports.points.issued.toLocaleString()} sub="This month" />
+                      <StatCard label="Points redeemed" value={reports.points.redeemed.toLocaleString()} sub="This month" accent />
+                    </div>
+                    <SectionLabel>Bookings by room</SectionLabel>
+                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden', marginBottom: 32 }}>
+                      {reports.revenueByRoom.map((r: any, i: number, arr: any[]) => (
+                        <div key={r.room} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.07)' : 'none' }}>
+                          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 15, color: '#F5F0E8' }}>{getRoomName(r.room)}</p>
+                          <div style={{ textAlign: 'right' }}>
+                            <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, color: '#C5855A' }}>{formatCurrency(r.totalRevenue)}</p>
+                            <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{r.totalBookings} bookings</p>
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <SectionLabel>Redemptions by room</SectionLabel>
-                <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                  {[
-                    { room: 'Private Cinema', redeemed: 14, pts: 6000 },
-                    { room: 'Hi-Fi Room',     redeemed: 22, pts: 5000 },
-                    { room: 'Media Room',     redeemed: 18, pts: 5000 },
-                  ].map((r, i, arr) => (
-                    <div key={r.room} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.07)' : 'none' }}>
-                      <div>
-                        <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 15, color: '#F5F0E8', marginBottom: 3 }}>{r.room}</p>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{r.pts.toLocaleString()} points per session</p>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, color: '#C5855A', fontWeight: 400 }}>{r.redeemed}</p>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>this month</p>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <button onClick={fetchReports} style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>Load points data →</button>
+                )}
               </div>
             )}
 
-            {/* ══ CLUBS ═════════════════════════════════════════════════════ */}
-            {tab === 'clubs' && (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 36 }}>
-                  {[
-                    { club: 'Ikoyi Club', active: true,  members: 47, converted: 12, sessions: 38 },
-                    { club: 'Polo Club',  active: false, members: 0,  converted: 0,  sessions: 0  },
-                    { club: 'MECO Club',  active: false, members: 0,  converted: 0,  sessions: 0  },
-                  ].map(c => (
-                    <div key={c.club} style={{ padding: '24px', border: `1px solid ${c.active ? 'rgba(197,133,90,0.2)' : 'rgba(197,133,90,0.08)'}`, borderRadius: 2, background: c.active ? 'rgba(197,133,90,0.03)' : 'rgba(255,255,255,0.01)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                        <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 17, color: '#F5F0E8', fontWeight: 400 }}>{c.club}</p>
-                        <span style={{ padding: '3px 9px', fontSize: 9, fontFamily: 'DM Sans', letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: c.active ? 'rgba(197,133,90,0.12)' : 'rgba(255,255,255,0.04)', color: c.active ? '#C5855A' : 'rgba(245,240,232,0.25)', border: `1px solid ${c.active ? 'rgba(197,133,90,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
-                          {c.active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      {c.active ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-                          {[
-                            { label: 'Members verified', value: c.members },
-                            { label: 'Converted to paying', value: c.converted },
-                            { label: 'Sessions booked', value: c.sessions },
-                            { label: 'Conversion rate', value: `${Math.round((c.converted / c.members) * 100)}%`, highlight: true },
-                          ].map(row => (
-                            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)' }}>{row.label}</span>
-                              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: row.highlight ? '#C5855A' : 'rgba(245,240,232,0.7)', fontWeight: 500 }}>{row.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.3)', lineHeight: 1.65, marginBottom: 18 }}>
-                          Partnership not yet activated.
-                        </p>
-                      )}
-                      <GhostBtn full>{c.active ? 'Manage' : 'Activate partnership'}</GhostBtn>
-                    </div>
-                  ))}
-                </div>
-
-                <SectionLabel>Ikoyi Club — recent member bookings</SectionLabel>
-                <Table headers={['Membership no.', 'Date', 'Room', 'Type', '']}>
-                  {[
-                    { number: 'IK-2847', date: '2026-06-25', room: 'Private Cinema', type: 'Complimentary' },
-                    { number: 'IK-1024', date: '2026-06-22', room: 'Hi-Fi Room',     type: '20% discount' },
-                    { number: 'IK-3391', date: '2026-06-18', room: 'Media Room',     type: '20% discount' },
-                  ].map((m, i) => (
-                    <TR key={i}>
-                      <TD mono>{m.number}</TD>
-                      <TD mono>{m.date}</TD>
-                      <TD>{m.room}</TD>
-                      <TD>
-                        <span style={{ padding: '3px 9px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: m.type === 'Complimentary' ? 'rgba(197,133,90,0.08)' : 'rgba(184,196,204,0.08)', color: m.type === 'Complimentary' ? '#C5855A' : '#B8C4CC', border: `1px solid ${m.type === 'Complimentary' ? 'rgba(197,133,90,0.25)' : 'rgba(184,196,204,0.25)'}` }}>
-                          {m.type}
-                        </span>
-                      </TD>
-                      <TD><ActionBtn>View</ActionBtn></TD>
-                    </TR>
-                  ))}
-                </Table>
-              </div>
-            )}
-
-            {/* ══ NOTIFICATIONS ═════════════════════════════════════════════ */}
-            {tab === 'notifications' && (
-              <div style={{ maxWidth: 600 }}>
-                <div style={{ marginBottom: 36 }}>
-                  <SectionLabel>Send a notification</SectionLabel>
-                  <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: 2, padding: '28px 24px', background: 'rgba(255,255,255,0.01)' }}>
-                    <SelectField label="Recipient">
-                      <option style={{ background: '#131109' }}>All customers</option>
-                      <option style={{ background: '#131109' }}>All Platinum members</option>
-                      <option style={{ background: '#131109' }}>All Gold members</option>
-                      <option style={{ background: '#131109' }}>Customers with expiring points</option>
-                      <option style={{ background: '#131109' }}>Club members — Ikoyi Club</option>
-                      <option style={{ background: '#131109' }}>Specific customer…</option>
-                    </SelectField>
-
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Channel</label>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {['WhatsApp', 'Email', 'Both'].map(c => (
-                          <FilterPill key={c} label={c} active={notifChannel === c} onClick={() => setNotifChannel(c)} />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: 20 }}>
-                      <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Message</label>
-                      <textarea
-                        rows={4}
-                        placeholder="Type your message…"
-                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', resize: 'none', boxSizing: 'border-box' }}
-                        onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-                      />
-                    </div>
-                    <PrimaryBtn>Send notification →</PrimaryBtn>
-                  </div>
-                </div>
-
-                <SectionLabel>Automated notifications</SectionLabel>
-                <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                  {[
-                    { name: 'Booking confirmation',      last: '2 mins ago' },
-                    { name: 'Points earned',             last: '15 mins ago' },
-                    { name: 'Tier upgrade',              last: '2 days ago' },
-                    { name: 'Points expiry — 6 months', last: '3 days ago' },
-                    { name: 'Points expiry — 3 months', last: '5 days ago' },
-                    { name: 'Points expiry — 10 days',  last: '1 week ago' },
-                    { name: 'Referral success',          last: '4 days ago' },
-                  ].map((n, i, arr) => (
-                    <div key={n.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.07)' : 'none' }}>
-                      <div>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.7)', marginBottom: 2 }}>{n.name}</p>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)' }}>Last sent: {n.last}</p>
-                      </div>
-                      <span style={{ padding: '3px 9px', fontSize: 9, fontFamily: 'DM Sans', letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: 'rgba(197,133,90,0.08)', color: '#C5855A', border: '1px solid rgba(197,133,90,0.2)' }}>
-                        Active
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ══ REPORTS ═══════════════════════════════════════════════════ */}
+            {/* ── REPORTS ── */}
             {tab === 'reports' && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {['This month', 'Last month', 'This year'].map(p => (
-                      <FilterPill key={p} label={p} active={p === 'This month'} onClick={() => {}} />
-                    ))}
-                  </div>
-                  <GhostBtn>↓ Export CSV</GhostBtn>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                  {[
-                    { title: 'Bookings by room',   rows: [['Private Cinema', '14', '₦7,000,000'], ['Hi-Fi Room', '12', '₦5,400,000'], ['Media Room', '8', '₦3,600,000']] },
-                    { title: 'Bookings by type',   rows: [['Cash', '28', '82%'], ['Points redemption', '4', '12%'], ['Complimentary', '2', '6%']] },
-                    { title: 'Loyalty overview',   rows: [['Points issued', '18,400', ''], ['Points redeemed', '8,000', ''], ['New members', '24', '']] },
-                    { title: 'Club performance',   rows: [['Ikoyi — complimentary', '6', ''], ['Ikoyi — paid visits', '8', '20% disc'], ['Conversion rate', '57%', '']] },
-                  ].map(section => (
-                    <div key={section.title} style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                {loadingReports ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+                ) : reports ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>{section.title}</p>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Bookings by room</p>
                       </div>
-                      {section.rows.map((row, i, arr) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{row[0]}</span>
-                          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{row[1]}</span>
-                            {row[2] && <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#C5855A' }}>{row[2]}</span>}
+                      {reports.bookingsByRoom.map((r: any, i: number, arr: any[]) => (
+                        <div key={r.room} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
+                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{getRoomName(r.room)}</span>
+                          <div style={{ display: 'flex', gap: 14 }}>
+                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{r.bookings}</span>
+                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#C5855A' }}>{formatCurrency(r.revenue)}</span>
                           </div>
                         </div>
                       ))}
                     </div>
-                  ))}
-                </div>
+                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Bookings by type</p>
+                      </div>
+                      {reports.bookingsByType.map((r: any, i: number, arr: any[]) => (
+                        <div key={r.paymentType} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
+                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{PAY_CONFIG[r.paymentType]?.label || r.paymentType}</span>
+                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{r.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Top customers</p>
+                      </div>
+                      {reports.topCustomers.slice(0, 5).map((c: any, i: number, arr: any[]) => (
+                        <div key={c.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
+                          <div>
+                            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.7)' }}>{c.name}</p>
+                            <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{c.totalBookings} bookings</p>
+                          </div>
+                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#C5855A' }}>{formatCurrency(c.annualSpend)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Loyalty overview</p>
+                      </div>
+                      {[
+                        { label: 'Points issued', value: reports.points.issued.toLocaleString() },
+                        { label: 'Points redeemed', value: reports.points.redeemed.toLocaleString() },
+                        { label: 'Total members', value: String(overview?.stats?.totalMembers || '—') },
+                      ].map((row, i, arr) => (
+                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
+                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{row.label}</span>
+                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No report data yet.</p>
+                )}
               </div>
             )}
 
-            {/* ══ SETTINGS ══════════════════════════════════════════════════ */}
+            {/* ── CLUBS, NOTIFICATIONS, SETTINGS — kept as-is (not connected to API yet) ── */}
+           {tab === 'clubs' && (
+  <ClubsTab token={token} />
+)}
+            {tab === 'notifications' && (
+              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Notification centre coming soon.</p>
+            )}
             {tab === 'settings' && (
-              <div style={{ maxWidth: 520 }}>
-                <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                  {/* Room pricing */}
-                  <div style={{ padding: '24px', borderBottom: '1px solid rgba(197,133,90,0.08)' }}>
-                    <SectionLabel>Room pricing</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      {ROOMS.map(room => (
-                        <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.6)', flex: 1 }}>{room.name}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.35)' }}>₦</span>
-                            <input
-                              type="number"
-                              defaultValue={room.price}
-                              style={{ width: 110, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '9px 12px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', textAlign: 'right' }}
-                              onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                              onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Refreshment pricing */}
-                  <div style={{ padding: '24px', borderBottom: '1px solid rgba(197,133,90,0.08)' }}>
-                    <SectionLabel>Refreshment pricing</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      {[{ name: 'Curated Snacks', price: 35000 }, { name: 'Cocktails & Platters', price: 75000 }].map(r => (
-                        <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.6)', flex: 1 }}>{r.name}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.35)' }}>₦</span>
-                            <input
-                              type="number"
-                              defaultValue={r.price}
-                              style={{ width: 110, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '9px 12px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', textAlign: 'right' }}
-                              onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                              onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Time slots */}
-                  <div style={{ padding: '24px', borderBottom: '1px solid rgba(197,133,90,0.08)' }}>
-                    <SectionLabel>Time slots</SectionLabel>
-                    <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.28)', marginBottom: 16, lineHeight: 1.65 }}>
-                      Confirm with operations before updating. Comma-separated.
-                    </p>
-                    {ROOMS.map(room => (
-                      <div key={room.id} style={{ marginBottom: 14 }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.35)', marginBottom: 7, letterSpacing: '0.06em' }}>{room.name}</p>
-                        <input
-                          type="text"
-                          defaultValue="10:00am, 2:00pm, 6:00pm"
-                          style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '9px 12px', fontSize: 12, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box' }}
-                          onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                          onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ padding: '24px' }}>
-                    <PrimaryBtn>Save changes →</PrimaryBtn>
-                  </div>
-                </div>
-              </div>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Settings coming soon.</p>
             )}
 
           </div>
         </main>
       </div>
 
-      {/* ── Grant access modal ───────────────────────────────────────────── */}
-      {grantModal && (
-        <Modal
-          title="Grant complimentary access."
-          subtitle="This grants a free session outside the customer's tier allowance. A reason note is required."
-          onClose={() => setGrantModal(false)}
-        >
-          <SelectField label="Room">
-            {ROOMS.map(r => <option key={r.id} style={{ background: '#131109' }}>{r.name}</option>)}
-          </SelectField>
-          <InputField label="Reason (required)" placeholder="e.g. VIP treatment, birthday celebration" />
-          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            <GhostBtn full onClick={() => setGrantModal(false)}>Cancel</GhostBtn>
-            <PrimaryBtn full onClick={() => setGrantModal(false)}>Grant access</PrimaryBtn>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── Adjust points modal ──────────────────────────────────────────── */}
-      {adjustModal && (
+      {/* Adjust points modal */}
+      {adjustModal && selectedCustomer && (
         <Modal
           title="Adjust points balance."
-          subtitle="Use positive numbers to add points, negative to deduct. A reason note is required."
-          onClose={() => setAdjustModal(false)}
+          subtitle={`Adjusting points for ${selectedCustomer.firstName} ${selectedCustomer.lastName}. Current balance: ${selectedCustomer.pointsBalance.toLocaleString()} pts.`}
+          onClose={() => { setAdjustModal(false); setAdjustSuccess(''); setAdjustError('') }}
         >
-          <InputField
-            label="Points adjustment"
-            type="number"
-            value={pointsAmount}
-            onChange={e => setPointsAmount(e.target.value)}
-            placeholder="+500 or -200"
-            style={{ fontFamily: 'DM Mono, monospace' }}
-          />
-          <InputField
-            label="Reason (required)"
-            value={pointsReason}
-            onChange={e => setPointsReason(e.target.value)}
-            placeholder="e.g. Campaign promotion, account correction"
-          />
+          <InputField label="Points adjustment" type="number" value={pointsAmount} onChange={e => setPointsAmount(e.target.value)} placeholder="+500 or -200" style={{ fontFamily: 'DM Mono, monospace' }} />
+          <InputField label="Reason (required)" value={pointsReason} onChange={e => setPointsReason(e.target.value)} placeholder="e.g. Campaign promotion" />
+          {adjustError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12, fontFamily: 'DM Sans' }}>{adjustError}</p>}
+          {adjustSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginBottom: 12, fontFamily: 'DM Sans' }}>{adjustSuccess}</p>}
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            <GhostBtn full onClick={() => setAdjustModal(false)}>Cancel</GhostBtn>
-            <PrimaryBtn full onClick={() => setAdjustModal(false)}>Apply adjustment</PrimaryBtn>
+            <GhostBtn full onClick={() => { setAdjustModal(false); setAdjustSuccess(''); setAdjustError('') }}>Cancel</GhostBtn>
+            <PrimaryBtn full onClick={handleAdjustPoints} disabled={adjustLoading}>{adjustLoading ? 'Saving...' : 'Apply adjustment'}</PrimaryBtn>
           </div>
         </Modal>
       )}
 
-      {/* ── Responsive sidebar ───────────────────────────────────────────── */}
       <style>{`
-        @media (min-width: 1024px) {
-          .admin-sidebar-desktop { display: flex !important; }
-          .admin-mobile-menu-btn { display: none !important; }
-        }
-        @media (max-width: 1023px) {
-          .admin-sidebar-desktop { display: none !important; }
-          .admin-mobile-menu-btn { display: flex !important; }
-        }
+        @media (min-width: 1024px) { .admin-sidebar-desktop { display: flex !important; } .admin-mobile-menu-btn { display: none !important; } }
+        @media (max-width: 1023px) { .admin-sidebar-desktop { display: none !important; } .admin-mobile-menu-btn { display: flex !important; } }
       `}</style>
     </div>
   )

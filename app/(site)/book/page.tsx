@@ -608,6 +608,8 @@ export default function BookPage() {
   const [selectedSlot, setSelectedSlot] = useState('')
   const [selectedRefresh, setSelectedRefresh] = useState<RefreshmentPackage>(REFRESHMENTS[0])
   const [bookingMode, setBookingMode] = useState<BookingMode>('cash')
+  const [paymentLoading, setPaymentLoading] = useState(false)
+const [paymentError, setPaymentError] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
   const takenOnDate = selectedDate ? (TAKEN_SLOTS[selectedDate] || []) : []
@@ -1283,57 +1285,77 @@ export default function BookPage() {
                   flexDirection: 'column',
                 }}
               >
-                <p
-                  style={{
-                    fontSize: '10px',
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
-                    color: '#C5855A',
-                    marginBottom: '24px',
-                    fontFamily: 'DM Sans',
-                    fontWeight: 500,
-                  }}
-                >
-                  Payment
-                </p>
-                <p
-                  style={{
-                    fontSize: '13px',
-                    color: 'rgba(245,240,232,0.45)',
-                    lineHeight: 1.7,
-                    marginBottom: '28px',
-                    fontFamily: 'DM Sans',
-                  }}
-                >
-                  Payment is processed securely via Paystack. You will be redirected to complete your payment and returned to this page once confirmed.
-                </p>
-
+                
                 <div style={{ flex: 1 }} />
 
                 {/* Paystack button */}
                 <button
-                  onClick={() => setStep('confirm')}
-                  style={{
-                    width: '100%',
-                    padding: '18px',
-                    background: '#C5855A',
-                    border: 'none',
-                    borderRadius: '2px',
-                    fontSize: '12px',
-                    fontFamily: 'DM Sans, sans-serif',
-                    fontWeight: 600,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: '#0E0C0A',
-                    cursor: 'pointer',
-                    marginBottom: '16px',
-                    transition: 'background 0.2s ease',
-                  }}
-                  onMouseEnter={e => ((e.target as HTMLButtonElement).style.background = '#D4946A')}
-                  onMouseLeave={e => ((e.target as HTMLButtonElement).style.background = '#C5855A')}
-                >
-                  Pay {formatCurrency(total)} with Paystack →
-                </button>
+  onClick={async () => {
+    setPaymentError('')
+    setPaymentLoading(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        window.location.href = '/login'
+        return
+      }
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'}/api/bookings/cash`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            room: selectedRoom?.id,
+            date: selectedDate,
+            timeSlot: selectedSlot,
+            guestCount,
+            refreshment: selectedRefresh.id === 'snacks'
+              ? 'curated-snacks'
+              : selectedRefresh.id === 'cocktails'
+              ? 'cocktails-platters'
+              : 'none',
+          }),
+        }
+      )
+      const data = await res.json()
+      if (!data.success) {
+        setPaymentError(data.message || 'Something went wrong. Please try again.')
+        return
+      }
+      window.location.href = data.data.authorizationUrl
+    } catch {
+      setPaymentError('Something went wrong. Please try again.')
+    } finally {
+      setPaymentLoading(false)
+    }
+  }}
+  style={{
+    width: '100%',
+    padding: '18px',
+    background: paymentLoading ? 'rgba(197,133,90,0.5)' : '#C5855A',
+    border: 'none',
+    borderRadius: '2px',
+    fontSize: '12px',
+    fontFamily: 'DM Sans, sans-serif',
+    fontWeight: 600,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: '#0E0C0A',
+    cursor: paymentLoading ? 'not-allowed' : 'pointer',
+    marginBottom: '16px',
+    transition: 'background 0.2s ease',
+  }}
+>
+  {paymentLoading ? 'Redirecting to Paystack...' : `Pay ${formatCurrency(total)} with Paystack →`}
+</button>
+{paymentError && (
+  <p style={{ fontSize: '12px', color: 'rgba(220,80,80,0.8)', textAlign: 'center', marginTop: '8px', fontFamily: 'DM Sans' }}>
+    {paymentError}
+  </p>
+)}
 
                 <p
                   style={{

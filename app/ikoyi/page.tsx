@@ -6,31 +6,48 @@ import RoomCard from '@/components/ui/RoomCard'
 import { ROOMS, formatCurrency } from '@/lib/constants'
 import Link from 'next/link'
 
+
 type ClubStep = 'verify' | 'book' | 'confirm'
 
-const MOCK_VALID_NUMBERS = ['IK-2847', 'IK-1024', 'IK-3391']
+
 
 export default function IkoyiClubPage() {
   const [step, setStep] = useState<ClubStep>('verify')
   const [membershipNumber, setMembershipNumber] = useState('')
   const [error, setError] = useState('')
   const [isFirstVisit, setIsFirstVisit] = useState(true)
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null)
+const [selectedRoom, setSelectedRoom] = useState<string | null>(null)
+const [verifying, setVerifying] = useState(false)
 
-  const handleVerify = () => {
-    setError('')
-    if (!membershipNumber.trim()) {
-      setError('Please enter your membership number.')
+const handleVerify = async () => {
+  setError('')
+  if (!membershipNumber.trim()) {
+    setError('Please enter your membership number.')
+    return
+  }
+  setVerifying(true)
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'}/api/bookings/ikoyi/verify`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ membershipNumber: membershipNumber.trim().toUpperCase() }),
+      }
+    )
+    const data = await res.json()
+    if (!data.success) {
+      setError('We could not verify your membership number. Please contact Ikoyi Club or reach us on WhatsApp for assistance.')
       return
     }
-    const upper = membershipNumber.trim().toUpperCase()
-    if (MOCK_VALID_NUMBERS.includes(upper)) {
-      setIsFirstVisit(upper !== 'IK-3391')
-      setStep('book')
-    } else {
-      setError('We could not verify your membership number. Please contact Ikoyi Club or visit reserve.soundhous.com to book directly.')
-    }
+    setIsFirstVisit(data.data.complimentaryAvailable)
+    setStep('book')
+  } catch {
+    setError('Something went wrong. Please try again.')
+  } finally {
+    setVerifying(false)
   }
+}
 
   if (step === 'confirm') {
     return (
@@ -114,11 +131,12 @@ export default function IkoyiClubPage() {
             </div>
 
             <button
-              onClick={handleVerify}
-              className="w-full bg-ink text-white py-3 rounded text-sm font-medium hover:bg-charcoal transition-colors"
-            >
-              Verify membership →
-            </button>
+  onClick={handleVerify}
+  disabled={verifying}
+  className="w-full bg-ink text-white py-3 rounded text-sm font-medium hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {verifying ? 'Verifying...' : 'Verify membership →'}
+</button>
 
             <div className="mt-6 p-4 bg-stone rounded-lg">
               <p className="text-xs text-smoke leading-relaxed">
