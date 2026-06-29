@@ -6,11 +6,30 @@ import { useState, useEffect } from 'react'
 // ─── Replace this with your real auth hook ────────────────────────────────────
 // e.g. import { useSession } from 'next-auth/react'
 // e.g. import { useAuth } from '@/lib/auth'
-function useMockAuth() {
-  // Toggle this to test both states
-  const isLoggedIn = false
-  const user = isLoggedIn ? { name: 'Adaeze Okonkwo', tier: 'Gold' } : null
-  return { user, isLoggedIn }
+function useAuth() {
+  const [user, setUser] = useState<{ name: string; tier: string } | null>(null)
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    const customerStr = localStorage.getItem('customer')
+    if (token && customerStr) {
+      try {
+        const customer = JSON.parse(customerStr)
+        const tierLabels: Record<string, string> = {
+          'reserve-member': 'Reserve Member',
+          'silver': 'Silver',
+          'gold': 'Gold',
+          'platinum': 'Platinum',
+        }
+        setUser({
+          name: `${customer.firstName} ${customer.lastName}`,
+          tier: tierLabels[customer.tier] || customer.tier,
+        })
+      } catch { setUser(null) }
+    }
+  }, [])
+
+  return { user, isLoggedIn: !!user }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -19,7 +38,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
-  const { user, isLoggedIn } = useMockAuth()
+  const { user, isLoggedIn } = useAuth()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -364,6 +383,11 @@ export default function Navbar() {
                         onClick={() => {
                           setAccountOpen(false)
                           // call your signOut() here
+                          localStorage.removeItem('accessToken')
+localStorage.removeItem('refreshToken')
+localStorage.removeItem('customer')
+localStorage.removeItem('isAdmin')
+window.location.href = '/'
                         }}
                       >
                         Sign out
@@ -513,6 +537,11 @@ export default function Navbar() {
                   onClick={() => {
                     setMenuOpen(false)
                     // call your signOut() here
+                    localStorage.removeItem('accessToken')
+localStorage.removeItem('refreshToken')
+localStorage.removeItem('customer')
+localStorage.removeItem('isAdmin')
+window.location.href = '/'
                   }}
                   style={{
                     display: 'block',
