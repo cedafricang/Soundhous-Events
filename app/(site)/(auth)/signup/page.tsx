@@ -195,24 +195,11 @@ export default function SignupPage() {
           <a href="https://wa.me/2349027549690" style={{ color: '#C5855A' }}>WhatsApp</a>.
         </p>
         
-         <a href="/dashboard"
-          style={{
-            display: 'inline-block',
-            padding: '13px 28px',
-            background: 'transparent',
-            border: '1px solid rgba(197,133,90,0.3)',
-            color: 'rgba(245,240,232,0.6)',
-            textDecoration: 'none',
-            fontSize: 11,
-            fontFamily: 'DM Sans',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            fontWeight: 500,
-            borderRadius: 2,
-          }}
-        >
-          Continue to dashboard →
-        </a>
+         <p style={{ fontSize: 13, color: 'rgba(245,240,232,0.3)', lineHeight: 1.7 }}>
+  Once verified, you'll be able to{' '}
+  <a href="/login" style={{ color: '#C5855A', textDecoration: 'none' }}>sign in</a>{' '}
+  and start booking.
+</p>
       </div>
     </div>
   )
