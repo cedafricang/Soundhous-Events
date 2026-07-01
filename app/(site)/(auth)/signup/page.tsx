@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+
 export default function SignupPage() {
+  const [signupComplete, setSignupComplete] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -77,7 +79,7 @@ export default function SignupPage() {
     localStorage.setItem('accessToken', data.data.accessToken)
     localStorage.setItem('refreshToken', data.data.refreshToken)
     localStorage.setItem('customer', JSON.stringify(data.data.customer))
-    window.location.href = '/dashboard'
+    setSignupComplete(true)
   } catch {
     setErrors({ email: 'Something went wrong. Please try again.' })
   } finally {
@@ -137,9 +139,88 @@ export default function SignupPage() {
     </svg>
   )
 
+  if (signupComplete) {
   return (
-    <>
-      <style>{`
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#0E0C0A',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'DM Sans, sans-serif',
+        padding: '24px',
+      }}
+    >
+      <div style={{ maxWidth: 440, textAlign: 'center' }}>
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            border: '1px solid rgba(197,133,90,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 32px',
+            boxShadow: '0 0 40px rgba(197,133,90,0.15)',
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C5855A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+            <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+          </svg>
+        </div>
+        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 16 }}>
+          Almost there
+        </p>
+        <h1
+          style={{
+            fontFamily: 'Playfair Display, Georgia, serif',
+            fontStyle: 'italic',
+            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontWeight: 400,
+            color: '#F5F0E8',
+            marginBottom: 16,
+            lineHeight: 1.2,
+          }}
+        >
+          Check your inbox.
+        </h1>
+        <p style={{ fontSize: 14, color: 'rgba(245,240,232,0.55)', lineHeight: 1.7, marginBottom: 12 }}>
+          We sent a verification link to <span style={{ color: '#F5F0E8' }}>{email}</span>. Click it to activate your Reserve account.
+        </p>
+        <p style={{ fontSize: 13, color: 'rgba(245,240,232,0.3)', lineHeight: 1.7, marginBottom: 32 }}>
+          Didn't get it? Check spam, or contact us on{' '}
+          <a href="https://wa.me/2349027549690" style={{ color: '#C5855A' }}>WhatsApp</a>.
+        </p>
+        
+         <a href="/dashboard"
+          style={{
+            display: 'inline-block',
+            padding: '13px 28px',
+            background: 'transparent',
+            border: '1px solid rgba(197,133,90,0.3)',
+            color: 'rgba(245,240,232,0.6)',
+            textDecoration: 'none',
+            fontSize: 11,
+            fontFamily: 'DM Sans',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            borderRadius: 2,
+          }}
+        >
+          Continue to dashboard →
+        </a>
+      </div>
+    </div>
+  )
+}
+
+return (
+  <>
+    <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
