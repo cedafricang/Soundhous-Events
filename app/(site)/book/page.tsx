@@ -1,7 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type BookingStep = 1 | 2 | 3 | 4 | 5 | 'confirm'
 type BookingMode = 'cash' | 'points' | 'complimentary'
 
@@ -14,6 +13,7 @@ interface Room {
   capacity: number
   price: number
   image: string
+  accentColor: string
 }
 
 interface RefreshmentPackage {
@@ -28,7 +28,6 @@ interface Guest {
   email: string
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const ROOMS: Room[] = [
   {
     id: 'private-cinema',
@@ -38,7 +37,8 @@ const ROOMS: Room[] = [
     sessionLength: '3 hours',
     capacity: 7,
     price: 500000,
-    image: 'images/cinemaroom.jpg',
+    image: '/images/cinemaroom.jpg',
+    accentColor: '#8B6F47',
   },
   {
     id: 'hi-fi-room',
@@ -48,7 +48,8 @@ const ROOMS: Room[] = [
     sessionLength: '2 hours',
     capacity: 5,
     price: 450000,
-    image: 'images/hifiroom.png',
+    image: '/images/hifiroom.png',
+    accentColor: '#C5855A',
   },
   {
     id: 'media-room',
@@ -58,7 +59,8 @@ const ROOMS: Room[] = [
     sessionLength: '2–3 hours',
     capacity: 5,
     price: 450000,
-    image: 'images/mediaroom.png',
+    image: '/images/mediaroom.png',
+    accentColor: '#A07850',
   },
 ]
 
@@ -68,10 +70,9 @@ const REFRESHMENTS: RefreshmentPackage[] = [
   { id: 'cocktails', name: 'Cocktails & Platters', description: 'Signature cocktails and curated platters. Everything in place when you walk in.', price: 75000 },
 ]
 
-const STEPS = ['Select room', 'Date & time', 'Guests', 'Refreshments', 'Review & pay']
+const STEPS = ['Room', 'Date & time', 'Guests', 'Refreshments', 'Pay']
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatCurrency(n: number) {
   return '₦' + n.toLocaleString('en-NG')
 }
@@ -86,64 +87,217 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-// ─── Intersection observer hook ───────────────────────────────────────────────
-function useVisible(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [threshold])
-  return { ref, visible }
+function getRoomName(id: string) {
+  return ROOMS.find(r => r.id === id)?.name || id
 }
 
-// ─── Room Card ──────────────────────────────────────────────────────────────
+// ─── Animated Room Card ──────────────────────────────────────────────────────
 function RoomCard({ room, selected, onClick, index }: { room: Room; selected: boolean; onClick: () => void; index: number }) {
-  const { ref, visible } = useVisible(0.1)
   const [hovered, setHovered] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 })
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoaded(true), index * 120)
+    return () => clearTimeout(timer)
+  }, [index])
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    setMousePos({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    })
+  }
+
   return (
     <div
-      ref={ref}
+      ref={cardRef}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); setMousePos({ x: 50, y: 50 }) }}
+      onMouseMove={handleMouseMove}
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(48px)',
-        transition: `opacity 0.9s cubic-bezier(0.22,1,0.36,1) ${index * 180}ms, transform 0.9s cubic-bezier(0.22,1,0.36,1) ${index * 180}ms`,
+        opacity: loaded ? 1 : 0,
+        transform: loaded ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.97)',
+        transition: `opacity 0.8s cubic-bezier(0.22,1,0.36,1) ${index * 120}ms, transform 0.8s cubic-bezier(0.22,1,0.36,1) ${index * 120}ms`,
         cursor: 'pointer',
         position: 'relative',
-        borderRadius: '2px',
+        borderRadius: '3px',
         overflow: 'hidden',
-        border: selected ? '1px solid rgba(197,133,90,0.9)' : '1px solid rgba(255,255,255,0.06)',
-        boxShadow: selected ? '0 0 0 1px rgba(197,133,90,0.4), 0 24px 64px rgba(0,0,0,0.6)' : '0 8px 40px rgba(0,0,0,0.5)',
+        border: selected
+          ? `1px solid ${room.accentColor}`
+          : hovered
+          ? '1px solid rgba(197,133,90,0.35)'
+          : '1px solid rgba(255,255,255,0.07)',
+        boxShadow: selected
+          ? `0 0 0 1px ${room.accentColor}40, 0 32px 80px rgba(0,0,0,0.7)`
+          : hovered
+          ? '0 20px 60px rgba(0,0,0,0.6)'
+          : '0 8px 32px rgba(0,0,0,0.4)',
         aspectRatio: '3/4',
-        minHeight: '480px',
-      }}
+        minHeight: '420px',
+       }}
     >
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${room.image})`, backgroundSize: 'cover', backgroundPosition: 'center', transform: hovered ? 'scale(1.04)' : 'scale(1.0)', transition: 'transform 1.4s cubic-bezier(0.22,1,0.36,1)' }} />
-      <div style={{ position: 'absolute', inset: 0, background: selected ? 'linear-gradient(to top, rgba(8,6,4,0.97) 0%, rgba(8,6,4,0.5) 50%, rgba(8,6,4,0.15) 100%)' : 'linear-gradient(to top, rgba(8,6,4,0.95) 0%, rgba(8,6,4,0.4) 55%, rgba(8,6,4,0.1) 100%)', transition: 'background 0.4s ease' }} />
-      {selected && (
-        <div style={{ position: 'absolute', top: 20, right: 20, width: 32, height: 32, borderRadius: '50%', background: '#C5855A', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(197,133,90,0.6)' }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </div>
+      {/* Background image with parallax-like motion */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: '-8px',
+          backgroundImage: `url(${room.image})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          transform: hovered
+            ? `scale(1.08) translate(${(mousePos.x - 50) * -0.04}px, ${(mousePos.y - 50) * -0.04}px)`
+            : 'scale(1.0)',
+          transition: hovered ? 'transform 0.1s ease-out' : 'transform 1.2s cubic-bezier(0.22,1,0.36,1)',
+          filter: selected ? 'brightness(0.85)' : hovered ? 'brightness(0.75)' : 'brightness(0.6)',
+        }}
+      />
+
+      {/* Radial spotlight following mouse */}
+      {hovered && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `radial-gradient(circle at ${mousePos.x}% ${mousePos.y}%, rgba(197,133,90,0.12) 0%, transparent 60%)`,
+            pointerEvents: 'none',
+            transition: 'none',
+          }}
+        />
       )}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 28px' }}>
-        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '10px', opacity: hovered || selected ? 1 : 0.8, transition: 'opacity 0.4s ease' }}>{room.tagline}</p>
-        <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 400, color: '#F5F0E8', marginBottom: '14px', lineHeight: 1.15, letterSpacing: '-0.01em' }}>{room.name}</h3>
-        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', lineHeight: 1.65, color: 'rgba(245,240,232,0.7)', marginBottom: '20px', maxHeight: hovered || selected ? '120px' : '0px', opacity: hovered || selected ? 1 : 0, overflow: 'hidden', transition: 'max-height 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease' }}>{room.description}</p>
-        <div style={{ width: selected ? '100%' : '40px', height: '1px', background: selected ? 'linear-gradient(to right, #C5855A, transparent)' : 'rgba(245,240,232,0.2)', marginBottom: '16px', transition: 'width 0.6s cubic-bezier(0.22,1,0.36,1)' }} />
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px' }}>
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <Spec label="Session" value={room.sessionLength} />
-            <Spec label="Guests" value={`Up to ${room.capacity}`} />
+
+      {/* Bottom gradient */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to top, rgba(6,5,3,0.98) 0%, rgba(6,5,3,0.6) 45%, rgba(6,5,3,0.0) 100%)',
+        }}
+      />
+
+      {/* Selected checkmark */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 18,
+          right: 18,
+          width: 30,
+          height: 30,
+          borderRadius: '50%',
+          background: selected ? room.accentColor : 'rgba(0,0,0,0.4)',
+          border: selected ? 'none' : '1px solid rgba(255,255,255,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          transform: selected ? 'scale(1)' : 'scale(0.85)',
+          boxShadow: selected ? `0 0 20px ${room.accentColor}60` : 'none',
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M2.5 6.5L5 9L10.5 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity={selected ? 1 : 0.4} />
+        </svg>
+      </div>
+
+      {/* Price tag */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 18,
+          left: 18,
+          padding: '5px 12px',
+          background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '2px',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}
+      >
+        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px', color: '#F5F0E8', letterSpacing: '0.04em' }}>
+          {formatCurrency(room.price)}
+        </p>
+      </div>
+
+      {/* Content */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '28px 24px' }}>
+        <p
+          style={{
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: '10px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: room.accentColor,
+            marginBottom: '8px',
+            opacity: hovered || selected ? 1 : 0.7,
+            transition: 'opacity 0.3s ease',
+          }}
+        >
+          {room.tagline}
+        </p>
+
+        <h3
+          style={{
+            fontFamily: 'Playfair Display, Georgia, serif',
+            fontStyle: 'italic',
+            fontSize: 'clamp(22px, 3vw, 28px)',
+            fontWeight: 400,
+            color: '#F5F0E8',
+            marginBottom: '12px',
+            lineHeight: 1.2,
+            letterSpacing: '-0.01em',
+          }}
+        >
+          {room.name}
+        </h3>
+
+        {/* Description — slides up on hover */}
+        <div
+          style={{
+            maxHeight: hovered || selected ? '80px' : '0px',
+            opacity: hovered || selected ? 1 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease',
+            marginBottom: hovered || selected ? '16px' : '0px',
+          }}
+        >
+          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', lineHeight: 1.6, color: 'rgba(245,240,232,0.65)' }}>
+            {room.description}
+          </p>
+        </div>
+
+        {/* Animated divider */}
+        <div
+          style={{
+            height: '1px',
+            background: `linear-gradient(to right, ${room.accentColor}, transparent)`,
+            width: selected ? '100%' : hovered ? '60%' : '32px',
+            marginBottom: '14px',
+            transition: 'width 0.5s cubic-bezier(0.22,1,0.36,1)',
+          }}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', color: 'rgba(245,240,232,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '2px' }}>Session</p>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', color: 'rgba(245,240,232,0.8)', fontWeight: 500 }}>{room.sessionLength}</p>
+            </div>
+            <div>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', color: 'rgba(245,240,232,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '2px' }}>Capacity</p>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', color: 'rgba(245,240,232,0.8)', fontWeight: 500 }}>Up to {room.capacity}</p>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '20px', fontWeight: 400, color: '#F5F0E8', letterSpacing: '-0.01em' }}>{formatCurrency(room.price)}</p>
-            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', color: 'rgba(245,240,232,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>per session</p>
+          <div
+            style={{
+              opacity: selected ? 1 : 0,
+              transform: selected ? 'translateX(0)' : 'translateX(8px)',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', color: room.accentColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Selected ✓</p>
           </div>
         </div>
       </div>
@@ -151,72 +305,77 @@ function RoomCard({ room, selected, onClick, index }: { room: Room; selected: bo
   )
 }
 
-function Spec({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', color: 'rgba(245,240,232,0.4)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '3px' }}>{label}</p>
-      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: 'rgba(245,240,232,0.85)', fontWeight: 500 }}>{value}</p>
-    </div>
-  )
-}
-
-// ─── Step Bar ───────────────────────────────────────────────────────────────
+// ─── Step indicator ──────────────────────────────────────────────────────────
 function StepBar({ step, setStep }: { step: BookingStep; setStep: (s: BookingStep) => void }) {
+  const currentStep = step === 'confirm' ? 6 : (step as number)
   return (
-    <div style={{ background: '#0E0C0A', borderBottom: '1px solid rgba(197,133,90,0.12)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-      <div style={{ display: 'flex', maxWidth: '1080px', margin: '0 auto', padding: '0 24px', minWidth: 'max-content' }}>
-        {STEPS.map((label, i) => {
-          const stepNum = (i + 1) as BookingStep
-          const isActive = step === stepNum
-          const isDone = (step as number) > (stepNum as number)
-          return (
-            <button
-              key={label}
-              onClick={() => isDone && setStep(stepNum)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '18px 20px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif',
-                letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, whiteSpace: 'nowrap', cursor: isDone ? 'pointer' : 'default',
-                border: 'none', background: 'transparent', borderBottom: isActive ? '1px solid #C5855A' : '1px solid transparent',
-                color: isActive ? '#C5855A' : isDone ? 'rgba(245,240,232,0.5)' : 'rgba(245,240,232,0.25)', transition: 'color 0.3s ease, border-color 0.3s ease', outline: 'none',
-              }}
-            >
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px',
-                fontFamily: 'DM Mono, monospace', flexShrink: 0,
-                background: isActive ? '#C5855A' : isDone ? 'rgba(197,133,90,0.15)' : 'rgba(255,255,255,0.05)',
-                color: isActive ? '#0E0C0A' : isDone ? '#C5855A' : 'rgba(245,240,232,0.3)',
-                border: isDone && !isActive ? '1px solid rgba(197,133,90,0.3)' : 'none', transition: 'all 0.3s ease',
-              }}>
-                {isDone ? '✓' : i + 1}
-              </span>
-              {label}
-            </button>
-          )
-        })}
+    <div style={{ background: 'rgba(14,12,10,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(197,133,90,0.1)', position: 'sticky', top: 0, zIndex: 40 }}>
+      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 clamp(16px, 4vw, 48px)', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', minWidth: 'max-content' }}>
+          {STEPS.map((label, i) => {
+            const stepNum = i + 1
+            const isActive = currentStep === stepNum
+            const isDone = currentStep > stepNum
+            return (
+              <button
+                key={label}
+                onClick={() => isDone && setStep(stepNum as BookingStep)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px',
+                  fontSize: '10px', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em',
+                  textTransform: 'uppercase', fontWeight: 600, whiteSpace: 'nowrap',
+                  cursor: isDone ? 'pointer' : 'default', border: 'none', background: 'transparent',
+                  borderBottom: isActive ? '2px solid #C5855A' : '2px solid transparent',
+                  color: isActive ? '#C5855A' : isDone ? 'rgba(245,240,232,0.5)' : 'rgba(245,240,232,0.2)',
+                  transition: 'all 0.25s ease', outline: 'none', marginBottom: '-1px',
+                }}
+              >
+                <span
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '9px', fontFamily: 'DM Mono, monospace', flexShrink: 0, fontWeight: 700,
+                    background: isActive ? '#C5855A' : isDone ? 'rgba(197,133,90,0.2)' : 'rgba(255,255,255,0.05)',
+                    color: isActive ? '#0E0C0A' : isDone ? '#C5855A' : 'rgba(245,240,232,0.25)',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  {isDone ? '✓' : stepNum}
+                </span>
+                {label}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Mode pills ───────────────────────────────────────────────────────────
+// ─── Mode pills ──────────────────────────────────────────────────────────────
 function ModePills({ mode, onChange }: { mode: BookingMode; onChange: (m: BookingMode) => void }) {
-  const options: { id: BookingMode; label: string }[] = [
-    { id: 'cash', label: 'Pay with card' },
-    { id: 'points', label: 'Redeem points' },
-    { id: 'complimentary', label: 'Complimentary access' },
+  const options: { id: BookingMode; label: string; icon: string }[] = [
+    { id: 'cash', label: 'Pay with card', icon: '💳' },
+    { id: 'points', label: 'Redeem points', icon: '⭐' },
+    { id: 'complimentary', label: 'Complimentary', icon: '🎁' },
   ]
   return (
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '40px' }}>
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
       {options.map(o => (
         <button
           key={o.id}
           onClick={() => onChange(o.id)}
           style={{
-            padding: '9px 18px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
-            fontWeight: 500, cursor: 'pointer', border: mode === o.id ? '1px solid #C5855A' : '1px solid rgba(197,133,90,0.2)', borderRadius: '2px',
-            background: mode === o.id ? '#C5855A' : 'transparent', color: mode === o.id ? '#0E0C0A' : 'rgba(245,240,232,0.55)', transition: 'all 0.25s ease', outline: 'none',
+            display: 'flex', alignItems: 'center', gap: '7px',
+            padding: '9px 16px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif',
+            letterSpacing: '0.06em', fontWeight: 500, cursor: 'pointer',
+            border: mode === o.id ? '1px solid #C5855A' : '1px solid rgba(197,133,90,0.18)',
+            borderRadius: '2px',
+            background: mode === o.id ? 'rgba(197,133,90,0.12)' : 'rgba(255,255,255,0.02)',
+            color: mode === o.id ? '#C5855A' : 'rgba(245,240,232,0.45)',
+            transition: 'all 0.2s ease', outline: 'none',
           }}
         >
+          <span style={{ fontSize: '13px' }}>{o.icon}</span>
           {o.label}
         </button>
       ))}
@@ -224,8 +383,57 @@ function ModePills({ mode, onChange }: { mode: BookingMode; onChange: (m: Bookin
   )
 }
 
-// ─── Buttons ─────────────────────────────────────────────────────────────
-function PrimaryBtn({ onClick, disabled, children, loading }: { onClick: () => void; disabled?: boolean; children: React.ReactNode; loading?: boolean }) {
+// ─── Sticky continue bar ─────────────────────────────────────────────────────
+function StickyBar({ show, room, onContinue, disabled }: { show: boolean; room: Room | null; onContinue: () => void; disabled: boolean }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        transform: show ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.4s cubic-bezier(0.22,1,0.36,1)',
+        background: 'rgba(10,8,6,0.96)',
+        backdropFilter: 'blur(16px)',
+        borderTop: '1px solid rgba(197,133,90,0.15)',
+        padding: '16px clamp(16px, 5vw, 48px)',
+      }}
+    >
+      <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+        <div>
+          {room && (
+            <>
+              <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: '16px', color: '#F5F0E8', marginBottom: '2px' }}>{room.name}</p>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', color: 'rgba(245,240,232,0.4)' }}>{room.sessionLength} · Up to {room.capacity} guests · {formatCurrency(room.price)}</p>
+            </>
+          )}
+        </div>
+        <button
+          onClick={disabled ? undefined : onContinue}
+          disabled={disabled}
+          style={{
+            padding: '13px 32px',
+            background: disabled ? 'rgba(255,255,255,0.06)' : '#C5855A',
+            color: disabled ? 'rgba(245,240,232,0.2)' : '#0E0C0A',
+            border: 'none', borderRadius: '2px',
+            fontSize: '11px', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em',
+            textTransform: 'uppercase', fontWeight: 700,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            flexShrink: 0,
+          }}
+        >
+          Continue →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Primary button ──────────────────────────────────────────────────────────
+function PrimaryBtn({ onClick, disabled, children, loading, fullWidth }: { onClick: () => void; disabled?: boolean; children: React.ReactNode; loading?: boolean; fullWidth?: boolean }) {
   const [hov, setHov] = useState(false)
   const isDisabled = disabled || loading
   return (
@@ -234,11 +442,15 @@ function PrimaryBtn({ onClick, disabled, children, loading }: { onClick: () => v
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        padding: '14px 36px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600,
+        padding: '14px 32px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif',
+        letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700,
         cursor: isDisabled ? 'not-allowed' : 'pointer', border: 'none', borderRadius: '2px',
         background: isDisabled ? 'rgba(255,255,255,0.06)' : hov ? '#D4946A' : '#C5855A',
-        color: isDisabled ? 'rgba(245,240,232,0.25)' : '#0E0C0A', transition: 'background 0.25s ease, transform 0.15s ease',
-        transform: hov && !isDisabled ? 'translateY(-1px)' : 'none', outline: 'none',
+        color: isDisabled ? 'rgba(245,240,232,0.2)' : '#0E0C0A',
+        transition: 'all 0.2s ease',
+        transform: hov && !isDisabled ? 'translateY(-1px)' : 'none',
+        outline: 'none',
+        width: fullWidth ? '100%' : 'auto',
       }}
     >
       {children}
@@ -247,16 +459,15 @@ function PrimaryBtn({ onClick, disabled, children, loading }: { onClick: () => v
 }
 
 function SecondaryBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  const [hov, setHov] = useState(false)
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
       style={{
-        padding: '14px 24px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500,
-        cursor: 'pointer', border: '1px solid rgba(197,133,90,0.25)', borderRadius: '2px', background: 'transparent',
-        color: hov ? 'rgba(245,240,232,0.9)' : 'rgba(245,240,232,0.45)', transition: 'all 0.25s ease', outline: 'none',
+        padding: '14px 24px', fontSize: '11px', fontFamily: 'DM Sans, sans-serif',
+        letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500,
+        cursor: 'pointer', border: '1px solid rgba(197,133,90,0.2)', borderRadius: '2px',
+        background: 'transparent', color: 'rgba(245,240,232,0.4)',
+        transition: 'all 0.2s ease', outline: 'none',
       }}
     >
       {children}
@@ -264,61 +475,70 @@ function SecondaryBtn({ onClick, children }: { onClick: () => void; children: Re
   )
 }
 
-// ─── Section header ─────────────────────────────────────────────────────
+// ─── Section heading ─────────────────────────────────────────────────────────
 function SectionHead({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
-  const { ref, visible } = useVisible(0.2)
   return (
-    <div ref={ref} style={{ marginBottom: '48px', opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity 0.7s ease, transform 0.7s ease' }}>
-      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '14px', fontWeight: 500 }}>{eyebrow}</p>
-      <h2 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 400, color: '#F5F0E8', marginBottom: subtitle ? '12px' : 0, lineHeight: 1.15, letterSpacing: '-0.01em' }}>{title}</h2>
-      {subtitle && <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', color: 'rgba(245,240,232,0.5)', lineHeight: 1.6, maxWidth: '520px' }}>{subtitle}</p>}
+    <div style={{ marginBottom: '40px' }}>
+      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '12px', fontWeight: 600 }}>{eyebrow}</p>
+      <h2 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 400, color: '#F5F0E8', marginBottom: subtitle ? '10px' : 0, lineHeight: 1.15, letterSpacing: '-0.01em' }}>{title}</h2>
+      {subtitle && <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: 'rgba(245,240,232,0.45)', lineHeight: 1.65, maxWidth: '480px' }}>{subtitle}</p>}
     </div>
   )
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: '2px',
-  padding: '12px 16px', fontSize: '14px', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', colorScheme: 'dark', boxSizing: 'border-box',
+  width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)',
+  borderRadius: '2px', padding: '12px 14px', fontSize: '14px', color: '#F5F0E8',
+  fontFamily: 'DM Sans, sans-serif', outline: 'none', colorScheme: 'dark', boxSizing: 'border-box',
+  transition: 'border-color 0.2s ease',
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.4)', marginBottom: '10px', fontFamily: 'DM Sans, sans-serif',
+  display: 'block', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+  color: 'rgba(245,240,232,0.35)', marginBottom: '8px', fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function BookPage() {
   const [authChecked, setAuthChecked] = useState(false)
   const [step, setStep] = useState<BookingStep>(1)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [selectedDate, setSelectedDate] = useState('')
-  const [guestCount, setGuestCount] = useState(2)
   const [selectedSlot, setSelectedSlot] = useState('')
   const [selectedRefresh, setSelectedRefresh] = useState<RefreshmentPackage>(REFRESHMENTS[0])
   const [bookingMode, setBookingMode] = useState<BookingMode>('cash')
-
-  // Availability
   const [availableSlots, setAvailableSlots] = useState<{ time: string; available: boolean }[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
-
-  // Host details
   const [hostName, setHostName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
-
-  // Guests
+  const [guestCount, setGuestCount] = useState(1)
   const [guests, setGuests] = useState<Guest[]>([])
   const [guestErrors, setGuestErrors] = useState<Record<number, string>>({})
-
-  // Payment / booking state
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<any>(null)
   const [pointsBalance, setPointsBalance] = useState<number | null>(null)
   const [complimentaryRemaining, setComplimentaryRemaining] = useState<number | null>(null)
+  const [showStickyBar, setShowStickyBar] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const total = (selectedRoom?.price || 0) + selectedRefresh.price
+  const pointsRequired: Record<string, number> = { 'private-cinema': 6000, 'hi-fi-room': 5000, 'media-room': 5000 }
+  const hasEnoughPoints = selectedRoom ? (pointsBalance ?? 0) >= pointsRequired[selectedRoom.id] : false
+  const hasComplimentaryLeft = (complimentaryRemaining ?? 0) > 0
 
-  // Prefill host details from logged in customer
+  // Auth gate
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    const customerStr = localStorage.getItem('customer')
+    if (!token || !customerStr) {
+      window.location.href = '/login?redirect=/book'
+      return
+    }
+    setAuthChecked(true)
+  }, [])
+
+  // Prefill host
   useEffect(() => {
     const customerStr = localStorage.getItem('customer')
     if (customerStr) {
@@ -330,24 +550,31 @@ export default function BookPage() {
     }
   }, [])
 
-  // Fetch real availability whenever room or date changes
+  // Show sticky bar on scroll when on step 1
   useEffect(() => {
-    if (!selectedRoom || !selectedDate) {
-      setAvailableSlots([])
-      return
-    }
+    if (step !== 1) { setShowStickyBar(false); return }
+    const onScroll = () => setShowStickyBar(window.scrollY > 120)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [step])
+
+  // Show sticky bar immediately when room selected (mobile)
+  useEffect(() => {
+    if (selectedRoom && step === 1) setShowStickyBar(true)
+  }, [selectedRoom, step])
+
+  // Fetch availability
+  useEffect(() => {
+    if (!selectedRoom || !selectedDate) { setAvailableSlots([]); return }
     setLoadingSlots(true)
     fetch(`${API_URL}/api/bookings/availability?room=${selectedRoom.id}&date=${selectedDate}`)
       .then(res => res.json())
-      .then(data => {
-        if (data.success) setAvailableSlots(data.data.slots)
-        else setAvailableSlots([])
-      })
+      .then(data => { if (data.success) setAvailableSlots(data.data.slots); else setAvailableSlots([]) })
       .catch(() => setAvailableSlots([]))
       .finally(() => setLoadingSlots(false))
   }, [selectedRoom, selectedDate])
 
-  // Check points balance / complimentary sessions when those modes are selected
+  // Fetch profile for points/complimentary
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     if (!token) return
@@ -362,32 +589,25 @@ export default function BookPage() {
       .catch(() => {})
   }, [])
 
-  const canProceed = (s: BookingStep) => {
-    if (s === 1) return !!selectedRoom
-    if (s === 2) return !!selectedDate && !!selectedSlot
-    if (s === 3) {
-      if (!hostName.trim() || !hostEmail.trim() || !isValidEmail(hostEmail)) return false
-      return true
-    }
-    return true
-  }
+  // Sync guest array to guestCount
+  useEffect(() => {
+    setGuests(prev => {
+      const adjusted = [...prev]
+      while (adjusted.length < guestCount) adjusted.push({ fullName: '', email: '' })
+      while (adjusted.length > guestCount) adjusted.pop()
+      return adjusted
+    })
+  }, [guestCount])
 
   const goNext = () => {
     const n = (step as number) + 1
-    if (n <= 5) setStep(n as BookingStep)
+    if (n <= 5) { setStep(n as BookingStep); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   }
   const goPrev = () => {
     const p = (step as number) - 1
-    if (p >= 1) setStep(p as BookingStep)
+    if (p >= 1) { setStep(p as BookingStep); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   }
 
-  const addGuest = () => {
-    if (guests.length >= (selectedRoom?.capacity || 7) - 1) return
-    setGuests([...guests, { fullName: '', email: '' }])
-  }
-  const removeGuest = (index: number) => {
-    setGuests(guests.filter((_, i) => i !== index))
-  }
   const updateGuest = (index: number, field: keyof Guest, value: string) => {
     const updated = [...guests]
     updated[index][field] = value
@@ -397,9 +617,8 @@ export default function BookPage() {
   const validateGuests = () => {
     const errors: Record<number, string> = {}
     guests.forEach((g, i) => {
-      if (!g.fullName.trim() && !g.email.trim()) return // empty rows are fine, skipped on submit
-      if (!g.fullName.trim()) errors[i] = 'Name is required.'
-      else if (!g.email.trim() || !isValidEmail(g.email)) errors[i] = 'Valid email is required.'
+      if (!g.fullName.trim()) errors[i] = 'Name required.'
+      else if (!isValidEmail(g.email)) errors[i] = 'Valid email required.'
     })
     setGuestErrors(errors)
     return Object.keys(errors).length === 0
@@ -415,15 +634,11 @@ export default function BookPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ guests: validGuests }),
       })
-    } catch (err) {
-      console.error('Failed to send guest invites:', err)
-    }
+    } catch (err) { console.error('Failed to send guest invites:', err) }
   }
 
-  // ── Cash booking — Paystack ──────────────────────────────────────────
   const handleCashPayment = async () => {
-    setPaymentError('')
-    setPaymentLoading(true)
+    setPaymentError(''); setPaymentLoading(true)
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) { window.location.href = '/login'; return }
@@ -431,29 +646,21 @@ export default function BookPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          room: selectedRoom?.id,
-          date: selectedDate,
-          timeSlot: selectedSlot,
-          guestCount,
+          room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
+          guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
         }),
       })
       const data = await res.json()
-      if (!data.success) { setPaymentError(data.message || 'Something went wrong. Please try again.'); return }
-      // Store pending guest invites for after Paystack redirect back
+      if (!data.success) { setPaymentError(data.message || 'Something went wrong.'); return }
       sessionStorage.setItem('pendingGuests', JSON.stringify(guests.filter(g => g.fullName.trim() && isValidEmail(g.email))))
       window.location.href = data.data.authorizationUrl
-    } catch {
-      setPaymentError('Something went wrong. Please try again.')
-    } finally {
-      setPaymentLoading(false)
-    }
+    } catch { setPaymentError('Something went wrong. Please try again.') }
+    finally { setPaymentLoading(false) }
   }
 
-  // ── Points redemption ────────────────────────────────────────────────
   const handlePointsRedemption = async () => {
-    setPaymentError('')
-    setPaymentLoading(true)
+    setPaymentError(''); setPaymentLoading(true)
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) { window.location.href = '/login'; return }
@@ -461,33 +668,21 @@ export default function BookPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          room: selectedRoom?.id,
-          date: selectedDate,
-          timeSlot: selectedSlot,
-          guestCount,
+          room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
+          guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
         }),
       })
       const data = await res.json()
-      if (!data.success) {
-        // Insufficient points — show error and suggest cash fallback
-        setPaymentError(data.message || 'Unable to redeem points for this room.')
-        return
-      }
+      if (!data.success) { setPaymentError(data.message || 'Unable to redeem points.'); return }
       await sendGuestInvites(data.data.booking.id)
-      setConfirmedBooking(data.data.booking)
-      setStep('confirm')
-    } catch {
-      setPaymentError('Something went wrong. Please try again.')
-    } finally {
-      setPaymentLoading(false)
-    }
+      setConfirmedBooking(data.data.booking); setStep('confirm')
+    } catch { setPaymentError('Something went wrong. Please try again.') }
+    finally { setPaymentLoading(false) }
   }
 
-  // ── Complimentary tier booking ───────────────────────────────────────
   const handleComplimentaryBooking = async () => {
-    setPaymentError('')
-    setPaymentLoading(true)
+    setPaymentError(''); setPaymentLoading(true)
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) { window.location.href = '/login'; return }
@@ -495,48 +690,24 @@ export default function BookPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          room: selectedRoom?.id,
-          date: selectedDate,
-          timeSlot: selectedSlot,
-          guestCount,
+          room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
+          guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
         }),
       })
       const data = await res.json()
-      if (!data.success) {
-        setPaymentError(data.message || 'Complimentary access is not available right now.')
-        return
-      }
+      if (!data.success) { setPaymentError(data.message || 'Complimentary access not available.'); return }
       await sendGuestInvites(data.data.booking.id)
-      setConfirmedBooking(data.data.booking)
-      setStep('confirm')
-    } catch {
-      setPaymentError('Something went wrong. Please try again.')
-    } finally {
-      setPaymentLoading(false)
-    }
+      setConfirmedBooking(data.data.booking); setStep('confirm')
+    } catch { setPaymentError('Something went wrong. Please try again.') }
+    finally { setPaymentLoading(false) }
   }
 
   const handleSubmitBooking = () => {
     if (bookingMode === 'cash') handleCashPayment()
     else if (bookingMode === 'points') handlePointsRedemption()
-    else if (bookingMode === 'complimentary') handleComplimentaryBooking()
+    else handleComplimentaryBooking()
   }
-
-  // Pre-flight checks for points/complimentary so we show the error before they even try
-  const pointsRequired: Record<string, number> = { 'private-cinema': 6000, 'hi-fi-room': 5000, 'media-room': 5000 }
-  const hasEnoughPoints = selectedRoom ? (pointsBalance ?? 0) >= pointsRequired[selectedRoom.id] : false
-  const hasComplimentaryLeft = (complimentaryRemaining ?? 0) > 0
-
-  useEffect(() => {
-  const token = localStorage.getItem('accessToken')
-  const customerStr = localStorage.getItem('customer')
-  if (!token || !customerStr) {
-    window.location.href = '/login?redirect=/book'
-    return
-  }
-  setAuthChecked(true)
-}, [])
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -546,39 +717,43 @@ export default function BookPage() {
     return () => { document.head.removeChild(link) }
   }, [])
 
-  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
-  const mainStyle: React.CSSProperties = { maxWidth: '1080px', margin: '0 auto', padding: 'clamp(40px, 6vw, 80px) clamp(20px, 5vw, 48px)' }
-// ── Auth gate ────────────────────────────────────────────────
-if (!authChecked) {
-  return (
-    <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: 'rgba(245,240,232,0.3)', letterSpacing: '0.1em' }}>Loading...</p>
-    </div>
-  )
-}
+  const page: React.CSSProperties = { minHeight: '100vh', background: '#0A0806', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
+  const main: React.CSSProperties = { maxWidth: '1080px', margin: '0 auto', padding: 'clamp(36px, 6vw, 72px) clamp(16px, 5vw, 48px)', paddingBottom: '120px' }
 
-  // ── Confirmation screen ──────────────────────────────────────────────
+  if (!authChecked) {
+    return (
+      <div style={{ ...page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '2px solid rgba(197,133,90,0.2)', borderTopColor: '#C5855A', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.8s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Confirmation ─────────────────────────────────────────────────────
   if (step === 'confirm') {
     return (
-      <div style={pageStyle}>
-        <div style={{ padding: '24px 48px', borderBottom: '1px solid rgba(197,133,90,0.1)' }}>
-          <span style={{ fontFamily: 'Playfair Display', fontStyle: 'italic', fontSize: '22px', color: '#F5F0E8', letterSpacing: '0.02em' }}>
-            Soundhous <span style={{ color: '#C5855A', fontWeight: 400 }}>Reserve</span>
+      <div style={page}>
+        <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }`}</style>
+        <div style={{ padding: '22px clamp(16px,5vw,48px)', borderBottom: '1px solid rgba(197,133,90,0.08)' }}>
+          <span style={{ fontFamily: 'Playfair Display', fontStyle: 'italic', fontSize: '20px', color: '#F5F0E8' }}>
+            Soundhous <span style={{ color: '#C5855A' }}>Reserve</span>
           </span>
         </div>
-        <div style={{ maxWidth: '520px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', border: '1px solid rgba(197,133,90,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px', boxShadow: '0 0 40px rgba(197,133,90,0.15)' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#C5855A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', animation: 'fadeUp 0.6s ease forwards' }}>
+          <div style={{ width: 68, height: 68, borderRadius: '50%', border: '1px solid rgba(197,133,90,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 28px', boxShadow: '0 0 60px rgba(197,133,90,0.2)' }}>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M5 14l5 5L21 7" stroke="#C5855A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '16px' }}>Booking confirmed</p>
-          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 400, color: '#F5F0E8', marginBottom: '20px', lineHeight: 1.2 }}>Your room is ready.</h1>
-          <p style={{ fontSize: '14px', color: 'rgba(245,240,232,0.55)', lineHeight: 1.7, marginBottom: '8px' }}>
-            We will see you on {selectedDate ? formatDate(selectedDate) : ''} at {selectedSlot}.
+          <p style={{ fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '14px' }}>Booking confirmed</p>
+          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 400, color: '#F5F0E8', marginBottom: '18px', lineHeight: 1.2 }}>Your room is ready.</h1>
+          <p style={{ fontSize: '14px', color: 'rgba(245,240,232,0.5)', lineHeight: 1.7, marginBottom: '6px' }}>
+            {selectedDate ? formatDate(selectedDate) : ''} at {selectedSlot}.
           </p>
-          <p style={{ fontSize: '14px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.7, marginBottom: '24px' }}>
-            A confirmation has been sent to your email{guests.length > 0 ? ', and your guests have been invited to RSVP.' : '.'}
+          <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.35)', lineHeight: 1.7, marginBottom: '36px' }}>
+            Your ticket has been sent to your email.{guests.length > 0 ? ' Your guests have been invited to RSVP.' : ''}
           </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/dashboard" style={{ textDecoration: 'none' }}><PrimaryBtn onClick={() => {}}>View my account</PrimaryBtn></a>
             <a href="/" style={{ textDecoration: 'none' }}><SecondaryBtn onClick={() => {}}>Return home</SecondaryBtn></a>
           </div>
@@ -588,163 +763,261 @@ if (!authChecked) {
   }
 
   return (
-    <div style={pageStyle}>
-      <StepBar step={step} setStep={setStep} />
-      <main style={mainStyle}>
+    <div style={page}>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6) sepia(1) hue-rotate(5deg); cursor: pointer; }
+        input:focus, select:focus { border-color: rgba(197,133,90,0.5) !important; }
+        .guest-row { animation: fadeUp 0.35s ease forwards; }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+      `}</style>
 
-        {/* ═══ STEP 1: Room selection ═══ */}
+      <StepBar step={step} setStep={setStep} />
+
+      <main style={main}>
+
+        {/* ═══ STEP 1: Room ═══════════════════════════════════════════════ */}
         {step === 1 && (
           <div>
-            <SectionHead eyebrow="Step 1 of 5" title="Choose your room." subtitle="The session fee covers room access. Refreshments are a separate addition later." />
-            <ModePills mode={bookingMode} onChange={setBookingMode} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '56px' }}>
-              {ROOMS.map((room, i) => (
-                <RoomCard key={room.id} room={room} selected={selectedRoom?.id === room.id} onClick={() => { setSelectedRoom(room); setSelectedSlot('') }} index={i} />
-              ))}
+            <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <SectionHead
+                eyebrow="Step 1 of 5"
+                title="Choose your room."
+                subtitle="Select the experience. Refreshments come later."
+              />
             </div>
 
-            {bookingMode === 'points' && selectedRoom && pointsBalance !== null && !hasEnoughPoints && (
-              <div style={{ padding: '16px 20px', border: '1px solid rgba(220,80,80,0.25)', borderRadius: '2px', background: 'rgba(220,80,80,0.05)', marginBottom: '24px' }}>
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.7)', fontFamily: 'DM Sans' }}>
-                  You have {pointsBalance.toLocaleString()} points. {getRoomName(selectedRoom.id)} requires {pointsRequired[selectedRoom.id].toLocaleString()} points. You can still book and pay with card instead.
+            <ModePills mode={bookingMode} onChange={setBookingMode} />
+
+            {/* Warnings for non-cash modes */}
+            {bookingMode === 'points' && pointsBalance !== null && selectedRoom && !hasEnoughPoints && (
+              <div style={{ padding: '14px 18px', border: '1px solid rgba(220,120,60,0.25)', borderRadius: '2px', background: 'rgba(220,120,60,0.05)', marginBottom: '20px' }}>
+                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.65)', fontFamily: 'DM Sans' }}>
+                  You have <strong style={{ color: '#C5855A' }}>{pointsBalance.toLocaleString()} points</strong>. {getRoomName(selectedRoom.id)} requires {pointsRequired[selectedRoom.id].toLocaleString()}. Switch to card payment below.
                 </p>
               </div>
             )}
             {bookingMode === 'complimentary' && complimentaryRemaining !== null && !hasComplimentaryLeft && (
-              <div style={{ padding: '16px 20px', border: '1px solid rgba(220,80,80,0.25)', borderRadius: '2px', background: 'rgba(220,80,80,0.05)', marginBottom: '24px' }}>
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.7)', fontFamily: 'DM Sans' }}>
-                  You have no complimentary sessions remaining this year. You can still book and pay with card instead.
+              <div style={{ padding: '14px 18px', border: '1px solid rgba(220,120,60,0.25)', borderRadius: '2px', background: 'rgba(220,120,60,0.05)', marginBottom: '20px' }}>
+                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.65)', fontFamily: 'DM Sans' }}>
+                  No complimentary sessions remaining this year. You can still pay with card.
                 </p>
               </div>
             )}
 
-            <div style={{ height: '1px', background: 'rgba(197,133,90,0.12)', marginBottom: '32px' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: '14px',
+                marginBottom: '40px',
+              }}
+            >
+              {ROOMS.map((room, i) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  selected={selectedRoom?.id === room.id}
+                  onClick={() => { setSelectedRoom(room); setSelectedSlot('') }}
+                  index={i}
+                />
+              ))}
+            </div>
+
+            {/* Desktop continue row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderTop: '1px solid rgba(197,133,90,0.1)', paddingTop: '24px' }}>
               {selectedRoom ? (
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.5)' }}>
-                  <span style={{ color: '#C5855A' }}>{selectedRoom.name}</span> selected &nbsp;·&nbsp;{selectedRoom.sessionLength}&nbsp;·&nbsp;Up to {selectedRoom.capacity} guests&nbsp;·&nbsp;{formatCurrency(selectedRoom.price)}
+                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.45)' }}>
+                  <span style={{ color: '#C5855A', fontWeight: 500 }}>{selectedRoom.name}</span>
+                  &nbsp;·&nbsp;{selectedRoom.sessionLength}&nbsp;·&nbsp;{formatCurrency(selectedRoom.price)}
                 </p>
               ) : (
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.25)' }}>Select a room to continue.</p>
+                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.2)' }}>Select a room to continue.</p>
               )}
-              <PrimaryBtn onClick={goNext} disabled={!canProceed(1)}>Continue →</PrimaryBtn>
+              <PrimaryBtn onClick={goNext} disabled={!selectedRoom}>Continue →</PrimaryBtn>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 2: Date & time ═══ */}
+        {/* ═══ STEP 2: Date & time ════════════════════════════════════════ */}
         {step === 2 && (
           <div>
-            <SectionHead eyebrow="Step 2 of 5" title="Date and time." subtitle={`Booking for ${selectedRoom?.name} — ${selectedRoom?.sessionLength}.`} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', maxWidth: '520px', marginBottom: '48px' }}>
+            <SectionHead
+              eyebrow="Step 2 of 5"
+              title="Date and time."
+              subtitle={`${selectedRoom?.name} · ${selectedRoom?.sessionLength}`}
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', maxWidth: '480px', marginBottom: '36px' }}>
               <div>
                 <label style={labelStyle}>Date</label>
-                <input type="date" min={today} value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setSelectedSlot('') }} style={inputStyle} />
+                <input
+                  type="date"
+                  min={today}
+                  value={selectedDate}
+                  onChange={e => { setSelectedDate(e.target.value); setSelectedSlot('') }}
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label style={labelStyle}>Guests</label>
-                <select value={guestCount} onChange={e => setGuestCount(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {Array.from({ length: selectedRoom?.capacity || 7 }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''}</option>
+                <label style={labelStyle}>Number of guests</label>
+                <select
+                  value={guestCount}
+                  onChange={e => setGuestCount(Number(e.target.value))}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  {Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
                   ))}
                 </select>
               </div>
             </div>
 
             {selectedDate && (
-              <div style={{ marginBottom: '48px' }}>
-                <label style={{ ...labelStyle, marginBottom: '16px' }}>Available sessions</label>
+              <div style={{ marginBottom: '40px' }}>
+                <label style={{ ...labelStyle, marginBottom: '14px' }}>Available sessions</label>
                 {loadingSlots ? (
-                  <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.3)', fontFamily: 'DM Sans' }}>Checking availability...</p>
-                ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                    {availableSlots.map(slot => {
-                      const active = selectedSlot === slot.time
-                      const taken = !slot.available
-                      return (
-                        <button
-                          key={slot.time}
-                          disabled={taken}
-                          onClick={() => !taken && setSelectedSlot(slot.time)}
-                          style={{
-                            padding: '12px 22px', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', cursor: taken ? 'not-allowed' : 'pointer',
-                            border: active ? '1px solid #C5855A' : taken ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(197,133,90,0.2)',
-                            borderRadius: '2px', background: active ? '#C5855A' : 'transparent',
-                            color: active ? '#0E0C0A' : taken ? 'rgba(245,240,232,0.18)' : 'rgba(245,240,232,0.65)',
-                            textDecoration: taken ? 'line-through' : 'none', transition: 'all 0.2s ease', outline: 'none', fontWeight: active ? 600 : 400,
-                          }}
-                        >
-                          {slot.time}
-                        </button>
-                      )
-                    })}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(197,133,90,0.2)', borderTopColor: '#C5855A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.3)', fontFamily: 'DM Sans' }}>Checking availability...</p>
                   </div>
+                ) : availableSlots.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans' }}>No slots available for this date.</p>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                      {availableSlots.map(slot => {
+                        const active = selectedSlot === slot.time
+                        const taken = !slot.available
+                        return (
+                          <button
+                            key={slot.time}
+                            disabled={taken}
+                            onClick={() => !taken && setSelectedSlot(slot.time)}
+                            style={{
+                              padding: '12px 20px', fontSize: '13px', fontFamily: 'DM Sans, sans-serif',
+                              cursor: taken ? 'not-allowed' : 'pointer',
+                              border: active ? '1px solid #C5855A' : taken ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(197,133,90,0.18)',
+                              borderRadius: '2px', background: active ? '#C5855A' : taken ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.02)',
+                              color: active ? '#0E0C0A' : taken ? 'rgba(245,240,232,0.15)' : 'rgba(245,240,232,0.6)',
+                              textDecoration: taken ? 'line-through' : 'none',
+                              transition: 'all 0.2s ease', outline: 'none', fontWeight: active ? 600 : 400,
+                            }}
+                          >
+                            {slot.time}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {availableSlots.some(s => !s.available) && (
+                      <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', marginTop: '10px', fontFamily: 'DM Sans' }}>
+                        Crossed-out sessions are fully booked.
+                      </p>
+                    )}
+                  </>
                 )}
-                <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.25)', marginTop: '12px', fontFamily: 'DM Sans' }}>Sessions marked through are fully booked on this date.</p>
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
-              <PrimaryBtn onClick={goNext} disabled={!canProceed(2)}>Continue →</PrimaryBtn>
+              <PrimaryBtn onClick={goNext} disabled={!selectedDate || !selectedSlot}>Continue →</PrimaryBtn>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 3: Host + guest details ═══ */}
+        {/* ═══ STEP 3: Guests ═════════════════════════════════════════════ */}
         {step === 3 && (
           <div>
-            <SectionHead eyebrow="Step 3 of 5" title="Who is joining you?" subtitle="We will send your guests an invite by email so they can RSVP." />
+            <SectionHead
+              eyebrow="Step 3 of 5"
+              title="Who's joining you?"
+              subtitle="Enter your guests' details — they'll each receive an invitation email to RSVP and collect their ticket."
+            />
 
-            <div style={{ maxWidth: '520px', marginBottom: '40px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '16px', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>Your details</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            {/* Host */}
+            <div style={{ marginBottom: '32px' }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '14px', fontFamily: 'DM Sans', fontWeight: 600 }}>
+                Your details (host)
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', maxWidth: '500px' }}>
                 <div>
                   <label style={labelStyle}>Full name</label>
                   <input type="text" value={hostName} onChange={e => setHostName(e.target.value)} placeholder="Your name" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Email address</label>
+                  <label style={labelStyle}>Email</label>
                   <input type="email" value={hostEmail} onChange={e => setHostEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} />
                 </div>
               </div>
             </div>
 
-            <div style={{ maxWidth: '700px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#C5855A', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
-                  Guests {guests.length > 0 ? `(${guests.length})` : '(optional)'}
+            {/* Guests — pre-populated based on guestCount */}
+            <div style={{ marginBottom: '36px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', maxWidth: '700px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', fontFamily: 'DM Sans', fontWeight: 600 }}>
+                  Guests ({guestCount})
                 </p>
-                {guests.length < (selectedRoom?.capacity || 7) - 1 && (
-                  <button onClick={addGuest} style={{ fontSize: '11px', color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>+ Add guest</button>
-                )}
+                <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.3)', fontFamily: 'DM Sans' }}>
+                  Each guest will receive an RSVP invite
+                </p>
               </div>
 
-              {guests.length === 0 && (
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.3)', fontFamily: 'DM Sans', marginBottom: '8px' }}>No guests added yet. You can invite up to {(selectedRoom?.capacity || 7) - 1} more.</p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '700px' }}>
                 {guests.map((g, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '16px', border: '1px solid rgba(197,133,90,0.15)', borderRadius: '2px', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                      <input type="text" value={g.fullName} onChange={e => updateGuest(i, 'fullName', e.target.value)} placeholder="Guest full name" style={inputStyle} />
-                      <input type="email" value={g.email} onChange={e => updateGuest(i, 'email', e.target.value)} placeholder="Guest email" style={inputStyle} />
+                  <div
+                    key={i}
+                    className="guest-row"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      padding: '16px',
+                      border: guestErrors[i] ? '1px solid rgba(220,80,80,0.3)' : '1px solid rgba(197,133,90,0.12)',
+                      borderRadius: '2px',
+                      background: 'rgba(255,255,255,0.02)',
+                      animationDelay: `${i * 60}ms`,
+                    }}
+                  >
+                    <div>
+                      <label style={{ ...labelStyle, color: 'rgba(245,240,232,0.25)' }}>Guest {i + 1} name</label>
+                      <input
+                        type="text"
+                        value={g.fullName}
+                        onChange={e => { updateGuest(i, 'fullName', e.target.value); setGuestErrors(prev => { const n = {...prev}; delete n[i]; return n }) }}
+                        placeholder={`Guest ${i + 1}`}
+                        style={{ ...inputStyle, borderColor: guestErrors[i] ? 'rgba(220,80,80,0.4)' : 'rgba(197,133,90,0.18)' }}
+                      />
                     </div>
-                    <button onClick={() => removeGuest(i)} style={{ flexShrink: 0, padding: '12px', background: 'transparent', border: '1px solid rgba(220,80,80,0.2)', borderRadius: '2px', color: 'rgba(220,80,80,0.6)', cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans' }}>✕</button>
+                    <div>
+                      <label style={{ ...labelStyle, color: 'rgba(245,240,232,0.25)' }}>Guest {i + 1} email</label>
+                      <input
+                        type="email"
+                        value={g.email}
+                        onChange={e => { updateGuest(i, 'email', e.target.value); setGuestErrors(prev => { const n = {...prev}; delete n[i]; return n }) }}
+                        placeholder="guest@email.com"
+                        style={{ ...inputStyle, borderColor: guestErrors[i] ? 'rgba(220,80,80,0.4)' : 'rgba(197,133,90,0.18)' }}
+                      />
+                    </div>
+                    {guestErrors[i] && (
+                      <p style={{ gridColumn: '1/-1', fontSize: '11px', color: 'rgba(220,80,80,0.75)', marginTop: '2px', fontFamily: 'DM Sans' }}>
+                        {guestErrors[i]}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
-              {Object.keys(guestErrors).length > 0 && (
-                <p style={{ fontSize: '12px', color: 'rgba(220,80,80,0.8)', marginTop: '10px', fontFamily: 'DM Sans' }}>Please complete or remove incomplete guest rows before continuing.</p>
-              )}
+
+              <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.25)', marginTop: '14px', fontFamily: 'DM Sans', lineHeight: 1.6 }}>
+                Need to change the number of guests? <button onClick={goPrev} style={{ background: 'none', border: 'none', color: '#C5855A', cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans', textDecoration: 'underline' }}>Go back to step 2</button>
+              </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '40px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
               <PrimaryBtn
-                onClick={() => { if (validateGuests()) goNext() }}
-                disabled={!canProceed(3)}
+                onClick={() => { if (!hostName.trim() || !isValidEmail(hostEmail)) return; if (validateGuests()) goNext() }}
+                disabled={!hostName.trim() || !isValidEmail(hostEmail)}
               >
                 Continue →
               </PrimaryBtn>
@@ -752,134 +1025,157 @@ if (!authChecked) {
           </div>
         )}
 
-        {/* ═══ STEP 4: Refreshments ═══ */}
+        {/* ═══ STEP 4: Refreshments ═══════════════════════════════════════ */}
         {step === 4 && (
           <div>
-            <SectionHead eyebrow="Step 4 of 5" title="Refreshments." subtitle="All packages are per session, not per person. Everything is prepared and in place before you arrive." />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', maxWidth: '760px', marginBottom: '32px' }}>
+            <SectionHead
+              eyebrow="Step 4 of 5"
+              title="Refreshments."
+              subtitle="Per session, not per person. Everything is prepared before you arrive."
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', maxWidth: '720px', marginBottom: '28px' }}>
               {REFRESHMENTS.map(r => {
                 const active = selectedRefresh.id === r.id
                 return (
-                  <div key={r.id} onClick={() => setSelectedRefresh(r)} style={{ padding: '24px', border: active ? '1px solid rgba(197,133,90,0.7)' : '1px solid rgba(197,133,90,0.12)', borderRadius: '2px', background: active ? 'rgba(197,133,90,0.07)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.25s ease', position: 'relative' }}>
+                  <div
+                    key={r.id}
+                    onClick={() => setSelectedRefresh(r)}
+                    style={{
+                      padding: '22px 20px', cursor: 'pointer', borderRadius: '2px',
+                      border: active ? '1px solid rgba(197,133,90,0.6)' : '1px solid rgba(197,133,90,0.1)',
+                      background: active ? 'rgba(197,133,90,0.08)' : 'rgba(255,255,255,0.02)',
+                      transition: 'all 0.2s ease', position: 'relative',
+                    }}
+                  >
                     {active && (
-                      <div style={{ position: 'absolute', top: 16, right: 16, width: 18, height: 18, borderRadius: '50%', background: '#C5855A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ position: 'absolute', top: 14, right: 14, width: 18, height: 18, borderRadius: '50%', background: '#C5855A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="#0E0C0A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </div>
                     )}
-                    <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '17px', fontWeight: 400, fontStyle: 'italic', color: active ? '#F5F0E8' : 'rgba(245,240,232,0.75)', marginBottom: '8px' }}>{r.name}</h3>
-                    <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.45)', lineHeight: 1.6, marginBottom: '16px', fontFamily: 'DM Sans' }}>{r.description}</p>
-                    <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '18px', color: active ? '#C5855A' : 'rgba(245,240,232,0.6)', fontWeight: 400 }}>{r.price === 0 ? 'Included' : formatCurrency(r.price)}</p>
+                    <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '16px', fontWeight: 400, fontStyle: 'italic', color: active ? '#F5F0E8' : 'rgba(245,240,232,0.65)', marginBottom: '7px' }}>{r.name}</h3>
+                    <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.6, marginBottom: '14px', fontFamily: 'DM Sans' }}>{r.description}</p>
+                    <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '17px', color: active ? '#C5855A' : 'rgba(245,240,232,0.5)', fontWeight: 400 }}>
+                      {r.price === 0 ? 'Included' : formatCurrency(r.price)}
+                    </p>
                   </div>
                 )
               })}
             </div>
 
-            <div style={{ maxWidth: '520px', padding: '20px 24px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: '2px', background: 'rgba(255,255,255,0.02)', marginBottom: '48px' }}>
-              <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: '15px', color: '#F5F0E8', marginBottom: '6px' }}>Bespoke Menu</p>
-              <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: '12px', fontFamily: 'DM Sans' }}>For a custom menu designed around your occasion, contact the team directly. Minimum 72 hours notice required.</p>
-              <a href="https://wa.me/2349027549690" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#C5855A', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'DM Sans', fontWeight: 500 }}>Contact on WhatsApp →</a>
+            {/* Bespoke */}
+            <div style={{ maxWidth: '480px', padding: '18px 20px', border: '1px solid rgba(197,133,90,0.08)', borderRadius: '2px', background: 'rgba(255,255,255,0.015)', marginBottom: '40px' }}>
+              <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: '15px', color: '#F5F0E8', marginBottom: '5px' }}>Bespoke Menu</p>
+              <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.35)', lineHeight: 1.65, marginBottom: '10px', fontFamily: 'DM Sans' }}>Custom menu for special occasions. Minimum 72 hours notice.</p>
+              <a href="https://wa.me/2349027549690" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#C5855A', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'DM Sans', fontWeight: 500 }}>
+                Contact on WhatsApp →
+              </a>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
               <PrimaryBtn onClick={goNext}>Continue →</PrimaryBtn>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 5: Review & pay ═══ */}
+        {/* ═══ STEP 5: Review & pay ═══════════════════════════════════════ */}
         {step === 5 && (
           <div>
-            <SectionHead eyebrow="Step 5 of 5" title="Review and confirm." subtitle="Confirm the details below before completing your booking." />
+            <SectionHead eyebrow="Step 5 of 5" title="Review and pay." />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '820px' }}>
-              <div style={{ border: '1px solid rgba(197,133,90,0.15)', borderRadius: '2px', padding: '28px', background: 'rgba(255,255,255,0.02)' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '24px', fontFamily: 'DM Sans', fontWeight: 500 }}>Booking summary</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '800px' }}>
+              {/* Summary */}
+              <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: '2px', padding: '24px', background: 'rgba(255,255,255,0.015)' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '20px', fontFamily: 'DM Sans', fontWeight: 600 }}>Booking summary</p>
                 {[
                   { label: 'Room', value: selectedRoom?.name || '' },
                   { label: 'Date', value: selectedDate ? formatDate(selectedDate) : '' },
                   { label: 'Time', value: selectedSlot },
-                  { label: 'Guests', value: `${guestCount} guest${guestCount > 1 ? 's' : ''}${guests.length > 0 ? ` (${guests.length} invited)` : ''}` },
+                  { label: 'Guests', value: `${guests.length + 1} total (you + ${guests.length})` },
                   { label: 'Refreshments', value: selectedRefresh.name },
-                  { label: 'Payment', value: bookingMode === 'cash' ? 'Card via Paystack' : bookingMode === 'points' ? 'Points redemption' : 'Complimentary access' },
+                  { label: 'Payment', value: bookingMode === 'cash' ? 'Card via Paystack' : bookingMode === 'points' ? 'Points' : 'Complimentary' },
                 ].map(row => (
-                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '16px' }}>
-                    <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans', flexShrink: 0 }}>{row.label}</span>
-                    <span style={{ fontSize: '13px', color: 'rgba(245,240,232,0.8)', fontFamily: 'DM Sans', fontWeight: 500, textAlign: 'right' }}>{row.value}</span>
+                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: '12px' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans', flexShrink: 0 }}>{row.label}</span>
+                    <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.75)', fontFamily: 'DM Sans', fontWeight: 500, textAlign: 'right' }}>{row.value}</span>
                   </div>
                 ))}
 
                 {bookingMode === 'cash' && (
                   <>
-                    <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans' }}>Session fee</span>
-                      <span style={{ fontSize: '13px', color: 'rgba(245,240,232,0.8)', fontFamily: 'DM Sans' }}>{formatCurrency(selectedRoom?.price || 0)}</span>
+                    <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans' }}>Session</span>
+                      <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.75)', fontFamily: 'DM Sans' }}>{formatCurrency(selectedRoom?.price || 0)}</span>
                     </div>
                     {selectedRefresh.price > 0 && (
-                      <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans' }}>Refreshments</span>
-                        <span style={{ fontSize: '13px', color: 'rgba(245,240,232,0.8)', fontFamily: 'DM Sans' }}>{formatCurrency(selectedRefresh.price)}</span>
+                      <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans' }}>Refreshments</span>
+                        <span style={{ fontSize: '12px', color: 'rgba(245,240,232,0.75)', fontFamily: 'DM Sans' }}>{formatCurrency(selectedRefresh.price)}</span>
                       </div>
                     )}
-                    <div style={{ paddingTop: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.5)' }}>Total</span>
-                      <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '24px', color: '#F5F0E8', fontWeight: 400 }}>{formatCurrency(total)}</span>
+                    <div style={{ paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans' }}>Total</span>
+                      <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '22px', color: '#F5F0E8', fontWeight: 400 }}>{formatCurrency(total)}</span>
                     </div>
                   </>
                 )}
 
                 {bookingMode === 'points' && selectedRoom && (
-                  <div style={{ paddingTop: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.5)' }}>Points required</span>
-                    <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '24px', color: '#C5855A', fontWeight: 400 }}>{pointsRequired[selectedRoom.id].toLocaleString()}</span>
+                  <div style={{ paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans' }}>Points</span>
+                    <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '22px', color: '#C5855A', fontWeight: 400 }}>{pointsRequired[selectedRoom.id].toLocaleString()}</span>
                   </div>
                 )}
 
                 {bookingMode === 'complimentary' && (
-                  <div style={{ paddingTop: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.5)' }}>Cost</span>
-                    <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '24px', color: '#C5855A', fontWeight: 400 }}>Complimentary</span>
+                  <div style={{ paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.4)', fontFamily: 'DM Sans' }}>Cost</span>
+                    <span style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '22px', color: '#C5855A', fontWeight: 400 }}>Complimentary</span>
                   </div>
                 )}
               </div>
 
-              <div style={{ border: '1px solid rgba(197,133,90,0.15)', borderRadius: '2px', padding: '28px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '24px', fontFamily: 'DM Sans', fontWeight: 500 }}>
-                  {bookingMode === 'cash' ? 'Payment' : bookingMode === 'points' ? 'Points redemption' : 'Complimentary access'}
+              {/* Pay */}
+              <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: '2px', padding: '24px', background: 'rgba(255,255,255,0.015)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#C5855A', fontFamily: 'DM Sans', fontWeight: 600 }}>
+                  {bookingMode === 'cash' ? 'Payment' : bookingMode === 'points' ? 'Redeem points' : 'Complimentary'}
                 </p>
-                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.45)', lineHeight: 1.7, marginBottom: '28px', fontFamily: 'DM Sans' }}>
-                  {bookingMode === 'cash' && 'Payment is processed securely via Paystack. You will be redirected to complete your payment and returned to this page once confirmed.'}
-                  {bookingMode === 'points' && `This booking will deduct ${selectedRoom ? pointsRequired[selectedRoom.id].toLocaleString() : ''} points from your balance. No card payment required.`}
-                  {bookingMode === 'complimentary' && 'This session uses one of your complimentary tier sessions for this year. No payment required.'}
+                <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.7, fontFamily: 'DM Sans', flex: 1 }}>
+                  {bookingMode === 'cash' && 'Processed securely via Paystack. You will be redirected and returned once payment is confirmed.'}
+                  {bookingMode === 'points' && `Deducts ${selectedRoom ? pointsRequired[selectedRoom.id].toLocaleString() : ''} points from your balance. No card payment needed.`}
+                  {bookingMode === 'complimentary' && 'Uses one of your complimentary tier sessions for this year. No payment needed.'}
                 </p>
-
-                <div style={{ flex: 1 }} />
 
                 <button
                   onClick={handleSubmitBooking}
                   disabled={paymentLoading}
                   style={{
-                    width: '100%', padding: '18px', background: paymentLoading ? 'rgba(197,133,90,0.5)' : '#C5855A', border: 'none', borderRadius: '2px',
-                    fontSize: '12px', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#0E0C0A',
-                    cursor: paymentLoading ? 'not-allowed' : 'pointer', marginBottom: '16px', transition: 'background 0.2s ease',
+                    width: '100%', padding: '16px',
+                    background: paymentLoading ? 'rgba(197,133,90,0.4)' : '#C5855A',
+                    border: 'none', borderRadius: '2px',
+                    fontSize: '11px', fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+                    letterSpacing: '0.12em', textTransform: 'uppercase', color: '#0E0C0A',
+                    cursor: paymentLoading ? 'not-allowed' : 'pointer',
+                    transition: 'background 0.2s ease',
                   }}
                 >
                   {paymentLoading
                     ? 'Processing...'
                     : bookingMode === 'cash'
-                    ? `Pay ${formatCurrency(total)} with Paystack →`
+                    ? `Pay ${formatCurrency(total)} →`
                     : bookingMode === 'points'
                     ? `Redeem ${selectedRoom ? pointsRequired[selectedRoom.id].toLocaleString() : ''} points →`
                     : 'Confirm complimentary booking →'}
                 </button>
 
                 {paymentError && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <p style={{ fontSize: '12px', color: 'rgba(220,80,80,0.85)', textAlign: 'center', fontFamily: 'DM Sans', marginBottom: '8px' }}>{paymentError}</p>
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(220,80,80,0.8)', textAlign: 'center', fontFamily: 'DM Sans', marginBottom: '8px' }}>{paymentError}</p>
                     {bookingMode !== 'cash' && (
                       <button
                         onClick={() => { setBookingMode('cash'); setPaymentError('') }}
-                        style={{ display: 'block', margin: '0 auto', fontSize: '11px', color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.05em', textDecoration: 'underline' }}
+                        style={{ display: 'block', margin: '0 auto', fontSize: '11px', color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', textDecoration: 'underline' }}
                       >
                         Pay with card instead
                       </button>
@@ -887,27 +1183,31 @@ if (!authChecked) {
                   </div>
                 )}
 
-                <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.25)', textAlign: 'center', lineHeight: 1.6, fontFamily: 'DM Sans' }}>
-                  No cancellations. Rescheduling is available up to 48 hours before your session — maximum two times per booking.
+                <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', textAlign: 'center', lineHeight: 1.6, fontFamily: 'DM Sans' }}>
+                  No cancellations. Rescheduling up to 48h before, max twice.
                 </p>
               </div>
             </div>
 
-            <div style={{ marginTop: '32px' }}>
+            <div style={{ marginTop: '24px' }}>
               <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
             </div>
           </div>
         )}
       </main>
 
-      <div style={{ marginTop: '80px', padding: '32px clamp(20px, 5vw, 48px)', borderTop: '1px solid rgba(197,133,90,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>© 2026 Soundhous · 17 Adeyemo Alakija Street, Victoria Island, Lagos</p>
-        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>reserve.soundhous.com</p>
+      {/* Sticky continue bar — step 1 only */}
+      <StickyBar
+        show={step === 1 && showStickyBar}
+        room={selectedRoom}
+        onContinue={goNext}
+        disabled={!selectedRoom}
+      />
+
+      <div style={{ padding: '28px clamp(16px,5vw,48px)', borderTop: '1px solid rgba(197,133,90,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.15)', fontFamily: 'DM Sans', letterSpacing: '0.04em' }}>© 2026 Soundhous · 17 Adeyemo Alakija Street, Victoria Island, Lagos</p>
+        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.15)', fontFamily: 'DM Sans', letterSpacing: '0.04em' }}>reserve.soundhous.com</p>
       </div>
     </div>
   )
-}
-
-function getRoomName(id: string) {
-  return ROOMS.find(r => r.id === id)?.name || id
 }
