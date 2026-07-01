@@ -487,7 +487,7 @@ function SectionHead({ eyebrow, title, subtitle }: { eyebrow: string; title: str
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)',
+  width: '100%',  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)',
   borderRadius: '2px', padding: '12px 14px', fontSize: '14px', color: '#F5F0E8',
   fontFamily: 'DM Sans, sans-serif', outline: 'none', colorScheme: 'dark', boxSizing: 'border-box',
   transition: 'border-color 0.2s ease',
@@ -848,7 +848,7 @@ export default function BookPage() {
               subtitle={`${selectedRoom?.name} · ${selectedRoom?.sessionLength}`}
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', maxWidth: '100%', marginBottom: '36px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', maxWidth: '480px', marginBottom: '36px' }}>
               <div>
                 <label style={labelStyle}>Date</label>
                 <input
