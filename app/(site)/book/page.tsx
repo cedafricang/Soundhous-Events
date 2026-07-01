@@ -287,6 +287,7 @@ const labelStyle: React.CSSProperties = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────
 export default function BookPage() {
+  const [authChecked, setAuthChecked] = useState(false)
   const [step, setStep] = useState<BookingStep>(1)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -528,6 +529,16 @@ export default function BookPage() {
   const hasComplimentaryLeft = (complimentaryRemaining ?? 0) > 0
 
   useEffect(() => {
+  const token = localStorage.getItem('accessToken')
+  const customerStr = localStorage.getItem('customer')
+  if (!token || !customerStr) {
+    window.location.href = '/login?redirect=/book'
+    return
+  }
+  setAuthChecked(true)
+}, [])
+
+  useEffect(() => {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap'
@@ -537,6 +548,14 @@ export default function BookPage() {
 
   const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
   const mainStyle: React.CSSProperties = { maxWidth: '1080px', margin: '0 auto', padding: 'clamp(40px, 6vw, 80px) clamp(20px, 5vw, 48px)' }
+// ── Auth gate ────────────────────────────────────────────────
+if (!authChecked) {
+  return (
+    <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: 'rgba(245,240,232,0.3)', letterSpacing: '0.1em' }}>Loading...</p>
+    </div>
+  )
+}
 
   // ── Confirmation screen ──────────────────────────────────────────────
   if (step === 'confirm') {

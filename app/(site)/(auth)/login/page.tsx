@@ -50,7 +50,9 @@ export default function LoginPage() {
     localStorage.setItem('accessToken', data.data.accessToken)
     localStorage.setItem('refreshToken', data.data.refreshToken)
     localStorage.setItem('customer', JSON.stringify(data.data.customer))
-    window.location.href = '/dashboard'
+    const params = new URLSearchParams(window.location.search)
+const redirect = params.get('redirect') || '/dashboard'
+window.location.href = redirect
   } catch {
     setError('Something went wrong. Please try again.')
   } finally {
