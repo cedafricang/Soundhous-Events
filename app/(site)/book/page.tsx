@@ -848,32 +848,52 @@ export default function BookPage() {
               subtitle={`${selectedRoom?.name} · ${selectedRoom?.sessionLength}`}
             />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '480px', marginBottom: '36px' }}>
-              <div>
-                <label style={labelStyle}>Date</label>
-                <input
-                  type="date"
-                  min={today}
-                  value={selectedDate}
-                  onChange={e => { setSelectedDate(e.target.value); setSelectedSlot('') }}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Number of guests</label>
-                <select
-                  value={guestCount}
-                  onChange={e => setGuestCount(Number(e.target.value))}
-                  style={{ ...inputStyle, cursor: 'pointer' }}
-                >
-                  <option value={0} style={{ background: '#1A1610' }}>Just me</option>
-{Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
-  <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
-))}
-                </select>
-              </div>
-            </div>
-
+            <div style={{ 
+  display: 'flex', 
+  flexDirection: 'column', 
+  gap: '12px', 
+  width: '100%',
+  maxWidth: '480px', 
+  marginBottom: '36px' 
+}}>
+  <div style={{ width: '100%' }}>
+    <label style={labelStyle}>Date</label>
+    <input
+      type="date"
+      min={today}
+      value={selectedDate}
+      onChange={e => { setSelectedDate(e.target.value); setSelectedSlot('') }}
+      style={{
+        ...inputStyle,
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        colorScheme: 'dark',
+        WebkitAppearance: 'none',
+        color: '#F5F0E8',
+      }}
+    />
+  </div>
+  <div style={{ width: '100%' }}>
+    <label style={labelStyle}>Number of guests</label>
+    <select
+      value={guestCount}
+      onChange={e => setGuestCount(Number(e.target.value))}
+      style={{ 
+        ...inputStyle, 
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        cursor: 'pointer' 
+      }}
+    >
+      <option value={0} style={{ background: '#1A1610' }}>Just me</option>
+      {Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
+        <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
+      ))}
+    </select>
+  </div>
+</div>
             {selectedDate && (
               <div style={{ marginBottom: '40px' }}>
                 <label style={{ ...labelStyle, marginBottom: '14px' }}>Available sessions</label>
