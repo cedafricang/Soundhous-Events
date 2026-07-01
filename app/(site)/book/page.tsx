@@ -848,7 +848,7 @@ export default function BookPage() {
               subtitle={`${selectedRoom?.name} · ${selectedRoom?.sessionLength}`}
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', maxWidth: '480px', marginBottom: '36px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', maxWidth: '100%', marginBottom: '36px' }}>
               <div>
                 <label style={labelStyle}>Date</label>
                 <input
@@ -866,9 +866,10 @@ export default function BookPage() {
                   onChange={e => setGuestCount(Number(e.target.value))}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
-                  {Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
-                  ))}
+                  <option value={0} style={{ background: '#1A1610' }}>Just me</option>
+{Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
+  <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
+))}
                 </select>
               </div>
             </div>
@@ -1092,7 +1093,7 @@ export default function BookPage() {
                   { label: 'Room', value: selectedRoom?.name || '' },
                   { label: 'Date', value: selectedDate ? formatDate(selectedDate) : '' },
                   { label: 'Time', value: selectedSlot },
-                  { label: 'Guests', value: `${guests.length + 1} total (you + ${guests.length})` },
+                  { label: 'Guests', value: guests.length === 0 ? 'Just you' : `${guests.length + 1} total (you + ${guests.length})` },
                   { label: 'Refreshments', value: selectedRefresh.name },
                   { label: 'Payment', value: bookingMode === 'cash' ? 'Card via Paystack' : bookingMode === 'points' ? 'Points' : 'Complimentary' },
                 ].map(row => (
