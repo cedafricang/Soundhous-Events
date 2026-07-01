@@ -1,27 +1,26 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
-type AdminTab = 'overview' | 'bookings' | 'customers' | 'points' | 'clubs' | 'notifications' | 'reports' | 'settings'
+type AdminTab = 'overview' | 'bookings' | 'customers' | 'guests' | 'points' | 'clubs' | 'reports' | 'settings'
 type PaymentType = 'cash' | 'points' | 'complimentary-tier' | 'club-member' | 'admin-grant'
-type Tier = 'reserve-member' | 'silver' | 'gold' | 'platinum'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
 
 const ROOMS = [
   { id: 'private-cinema', name: 'Private Cinema', price: 500000 },
-  { id: 'hi-fi-room',     name: 'Hi-Fi Room',      price: 450000 },
-  { id: 'media-room',     name: 'Media Room',       price: 450000 },
+  { id: 'hi-fi-room', name: 'Hi-Fi Room', price: 450000 },
+  { id: 'media-room', name: 'Media Room', price: 450000 },
 ]
 
 const NAV_ITEMS: { id: AdminTab; label: string; iconPath: string }[] = [
-  { id: 'overview',      label: 'Overview',       iconPath: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z' },
-  { id: 'bookings',      label: 'Bookings',       iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-  { id: 'customers',     label: 'Customers',      iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { id: 'points',        label: 'Points & Tiers', iconPath: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { id: 'clubs',         label: 'Club Members',   iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
-  { id: 'notifications', label: 'Notifications',  iconPath: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-  { id: 'reports',       label: 'Reports',        iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-  { id: 'settings',      label: 'Settings',       iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+  { id: 'overview', label: 'Overview', iconPath: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z' },
+  { id: 'bookings', label: 'Bookings', iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+  { id: 'customers', label: 'Customers', iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+  { id: 'guests', label: 'Guests & RSVPs', iconPath: 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z' },
+  { id: 'points', label: 'Points & Tiers', iconPath: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { id: 'clubs', label: 'Club Members', iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
+  { id: 'reports', label: 'Reports', iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+  { id: 'settings', label: 'Settings', iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
 ]
 
 function formatCurrency(n: number) { return '₦' + n.toLocaleString('en-NG') }
@@ -29,19 +28,26 @@ function getRoomName(id: string) { return ROOMS.find(r => r.id === id)?.name || 
 
 const TIER_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   'reserve-member': { label: 'Reserve Member', color: 'rgba(245,240,232,0.45)', dot: 'rgba(245,240,232,0.4)' },
-  'silver':         { label: 'Silver',          color: '#B8C4CC',                dot: '#B8C4CC' },
-  'gold':           { label: 'Gold',            color: '#C5855A',                dot: '#C5855A' },
-  'platinum':       { label: 'Platinum',        color: '#D4C5A9',                dot: '#D4C5A9' },
+  'silver': { label: 'Silver', color: '#B8C4CC', dot: '#B8C4CC' },
+  'gold': { label: 'Gold', color: '#C5855A', dot: '#C5855A' },
+  'platinum': { label: 'Platinum', color: '#D4C5A9', dot: '#D4C5A9' },
 }
 
 const PAY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  'cash':             { label: 'Paid',          color: '#C5855A',                bg: 'rgba(197,133,90,0.08)',  border: 'rgba(197,133,90,0.25)' },
-  'points':           { label: 'Redeemed',      color: '#B8C4CC',                bg: 'rgba(184,196,204,0.08)', border: 'rgba(184,196,204,0.25)' },
+  'cash': { label: 'Paid', color: '#C5855A', bg: 'rgba(197,133,90,0.08)', border: 'rgba(197,133,90,0.25)' },
+  'points': { label: 'Redeemed', color: '#B8C4CC', bg: 'rgba(184,196,204,0.08)', border: 'rgba(184,196,204,0.25)' },
   'complimentary-tier': { label: 'Complimentary', color: 'rgba(245,240,232,0.55)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.1)' },
-  'club-member':      { label: 'Club',          color: '#D4C5A9',                bg: 'rgba(212,197,169,0.08)', border: 'rgba(212,197,169,0.25)' },
-  'admin-grant':      { label: 'Admin grant',   color: 'rgba(245,240,232,0.4)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.1)' },
+  'club-member': { label: 'Club', color: '#D4C5A9', bg: 'rgba(212,197,169,0.08)', border: 'rgba(212,197,169,0.25)' },
+  'admin-grant': { label: 'Admin grant', color: 'rgba(245,240,232,0.4)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.1)' },
 }
 
+const RSVP_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  'pending': { label: 'Pending', color: 'rgba(245,240,232,0.4)', bg: 'rgba(255,255,255,0.04)' },
+  'accepted': { label: 'Accepted', color: '#C5855A', bg: 'rgba(197,133,90,0.08)' },
+  'declined': { label: 'Declined', color: 'rgba(220,80,80,0.7)', bg: 'rgba(220,80,80,0.06)' },
+}
+
+// ─── UI primitives ────────────────────────────────────────────────────────────
 function TierPill({ tier }: { tier: string }) {
   const c = TIER_CONFIG[tier] || TIER_CONFIG['reserve-member']
   return (
@@ -56,6 +62,15 @@ function PayPill({ type }: { type: string }) {
   const c = PAY_CONFIG[type] || PAY_CONFIG['cash']
   return (
     <span style={{ display: 'inline-block', padding: '3px 9px', border: `1px solid ${c.border}`, borderRadius: 2, fontSize: 10, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', color: c.color, background: c.bg, fontWeight: 500, whiteSpace: 'nowrap' }}>
+      {c.label}
+    </span>
+  )
+}
+
+function RsvpPill({ status }: { status: string }) {
+  const c = RSVP_CONFIG[status] || RSVP_CONFIG['pending']
+  return (
+    <span style={{ display: 'inline-block', padding: '3px 9px', border: `1px solid ${c.color}40`, borderRadius: 2, fontSize: 10, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', color: c.color, background: c.bg, fontWeight: 500, whiteSpace: 'nowrap' }}>
       {c.label}
     </span>
   )
@@ -86,22 +101,9 @@ function InputField({ label, ...props }: { label: string } & React.InputHTMLAttr
   )
 }
 
-function SelectField({ label, children, ...props }: { label: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+function PrimaryBtn({ onClick, children, full = false, disabled = false, small = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean; disabled?: boolean; small?: boolean }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>{label}</label>
-      <select {...props} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
-        onFocus={e => (e.target.style.borderColor = '#C5855A')}
-        onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}>
-        {children}
-      </select>
-    </div>
-  )
-}
-
-function PrimaryBtn({ onClick, children, full = false, disabled = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean; disabled?: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: disabled ? 'rgba(197,133,90,0.4)' : '#C5855A', color: '#0E0C0A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
+    <button onClick={onClick} disabled={disabled} style={{ width: full ? '100%' : 'auto', padding: small ? '9px 18px' : '12px 24px', background: disabled ? 'rgba(197,133,90,0.4)' : '#C5855A', color: '#0E0C0A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background 0.2s', whiteSpace: 'nowrap' }}
       onMouseEnter={e => { if (!disabled) (e.target as HTMLElement).style.background = '#D4946A' }}
       onMouseLeave={e => { if (!disabled) (e.target as HTMLElement).style.background = '#C5855A' }}>
       {children}
@@ -109,11 +111,9 @@ function PrimaryBtn({ onClick, children, full = false, disabled = false }: { onC
   )
 }
 
-function GhostBtn({ onClick, children, full = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean }) {
+function GhostBtn({ onClick, children, full = false, small = false }: { onClick?: () => void; children: React.ReactNode; full?: boolean; small?: boolean }) {
   return (
-    <button onClick={onClick} style={{ width: full ? '100%' : 'auto', padding: '12px 24px', background: 'transparent', color: 'rgba(245,240,232,0.45)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}
-      onMouseEnter={e => { (e.target as HTMLElement).style.color = '#F5F0E8'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.5)' }}
-      onMouseLeave={e => { (e.target as HTMLElement).style.color = 'rgba(245,240,232,0.45)'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.2)' }}>
+    <button onClick={onClick} style={{ width: full ? '100%' : 'auto', padding: small ? '9px 18px' : '12px 24px', background: 'transparent', color: 'rgba(245,240,232,0.45)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
       {children}
     </button>
   )
@@ -145,8 +145,8 @@ function TR({ children }: { children: React.ReactNode }) {
   )
 }
 
-function TD({ children, mono = false }: { children: React.ReactNode; mono?: boolean }) {
-  return <td style={{ padding: '13px 18px', fontFamily: mono ? 'DM Mono, monospace' : 'DM Sans, sans-serif', fontSize: mono ? 11 : 13, color: 'rgba(245,240,232,0.65)', whiteSpace: 'nowrap' }}>{children}</td>
+function TD({ children, mono = false, muted = false }: { children: React.ReactNode; mono?: boolean; muted?: boolean }) {
+  return <td style={{ padding: '13px 18px', fontFamily: mono ? 'DM Mono, monospace' : 'DM Sans, sans-serif', fontSize: mono ? 11 : 13, color: muted ? 'rgba(245,240,232,0.3)' : 'rgba(245,240,232,0.65)', whiteSpace: 'nowrap' }}>{children}</td>
 }
 
 function ActionBtn({ onClick, children }: { onClick?: () => void; children: React.ReactNode }) {
@@ -158,13 +158,13 @@ function ActionBtn({ onClick, children }: { onClick?: () => void; children: Reac
   )
 }
 
-function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
-      <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+      <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 460, boxShadow: '0 32px 80px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{title}</h3>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65 }}>{subtitle}</p>
+          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: subtitle ? 6 : 0 }}>{title}</h3>
+          {subtitle && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65 }}>{subtitle}</p>}
         </div>
         {children}
         <button onClick={onClose} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 18, lineHeight: 1 }}>×</button>
@@ -185,6 +185,7 @@ function NavIcon({ path }: { path: string }) {
   return <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4}><path strokeLinecap="round" strokeLinejoin="round" d={path} /></svg>
 }
 
+// ─── Clubs tab ────────────────────────────────────────────────────────────────
 function ClubsTab({ token }: { token: string | null }) {
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -193,17 +194,12 @@ function ClubsTab({ token }: { token: string | null }) {
   const [addError, setAddError] = useState('')
   const [addSuccess, setAddSuccess] = useState('')
 
-  useEffect(() => {
-    fetchMembers()
-  }, [])
+  useEffect(() => { fetchMembers() }, [])
 
   const fetchMembers = async () => {
     setLoading(true)
     try {
-      const res = await fetch(
-        `${API_URL}/api/admin/clubs/ikoyi/members?limit=100`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      const res = await fetch(`${API_URL}/api/admin/clubs/ikoyi/members?limit=100`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       if (data.success) setMembers(data.data.members)
     } catch (err) { console.error(err) }
@@ -211,31 +207,18 @@ function ClubsTab({ token }: { token: string | null }) {
   }
 
   const handleAdd = async () => {
-    setAddError('')
-    setAddSuccess('')
-    if (!newNumber.trim()) {
-      setAddError('Please enter a membership number.')
-      return
-    }
+    setAddError(''); setAddSuccess('')
+    if (!newNumber.trim()) { setAddError('Please enter a membership number.'); return }
     setAdding(true)
     try {
-      const res = await fetch(
-        `${API_URL}/api/admin/clubs/ikoyi/members`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ membershipNumber: newNumber.trim().toUpperCase() }),
-        }
-      )
+      const res = await fetch(`${API_URL}/api/admin/clubs/ikoyi/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ membershipNumber: newNumber.trim().toUpperCase() }),
+      })
       const data = await res.json()
-      if (!data.success) {
-        setAddError(data.message || 'Failed to add member.')
-        return
-      }
-      setAddSuccess(`${newNumber.trim().toUpperCase()} added successfully.`)
+      if (!data.success) { setAddError(data.message || 'Failed to add member.'); return }
+      setAddSuccess(`${newNumber.trim().toUpperCase()} added.`)
       setNewNumber('')
       fetchMembers()
     } catch { setAddError('Something went wrong.') }
@@ -244,60 +227,31 @@ function ClubsTab({ token }: { token: string | null }) {
 
   return (
     <div>
-      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 36 }}>
-        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Total members</p>
-          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', lineHeight: 1, marginBottom: 6 }}>{members.length}</p>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>Ikoyi Club</p>
-        </div>
-        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Complimentary used</p>
-          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#C5855A', lineHeight: 1, marginBottom: 6 }}>{members.filter(m => m.complimentaryUsed).length}</p>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>of {members.length} members</p>
-        </div>
-        <div style={{ padding: '22px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.32)', marginBottom: 10, fontWeight: 500 }}>Converted to Reserve</p>
-          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', lineHeight: 1, marginBottom: 6 }}>{members.filter(m => m.customerEmail).length}</p>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>have Reserve accounts</p>
-        </div>
+        <StatCard label="Total members" value={String(members.length)} sub="Ikoyi Club" />
+        <StatCard label="Complimentary used" value={String(members.filter(m => m.complimentaryUsed).length)} sub={`of ${members.length} members`} accent />
+        <StatCard label="Reserve accounts" value={String(members.filter(m => m.customerEmail).length)} sub="converted members" />
       </div>
-
-      {/* Add member form */}
       <div style={{ marginBottom: 32 }}>
         <SectionLabel>Add Ikoyi Club member</SectionLabel>
-        <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: 2, padding: '24px', background: 'rgba(255,255,255,0.01)', maxWidth: 480 }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: 20 }}>
-            Add a membership number to allow that Ikoyi Club member to verify and book through the Reserve platform.
-          </p>
+        <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: 2, padding: 24, background: 'rgba(255,255,255,0.01)', maxWidth: 480 }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: 20 }}>Add a membership number to allow that Ikoyi Club member to verify and book through Reserve.</p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Membership number</label>
-              <input
-                type="text"
-                value={newNumber}
-                onChange={e => { setNewNumber(e.target.value); setAddError(''); setAddSuccess('') }}
-                onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                placeholder="e.g. IK-0001"
+              <input type="text" value={newNumber} onChange={e => { setNewNumber(e.target.value); setAddError(''); setAddSuccess('') }} onKeyDown={e => e.key === 'Enter' && handleAdd()} placeholder="e.g. IK-0001"
                 style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box' }}
                 onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')}
-              />
+                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')} />
             </div>
-            <PrimaryBtn onClick={handleAdd} disabled={adding}>
-              {adding ? 'Adding...' : 'Add member'}
-            </PrimaryBtn>
+            <PrimaryBtn onClick={handleAdd} disabled={adding}>{adding ? 'Adding...' : 'Add member'}</PrimaryBtn>
           </div>
           {addError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginTop: 10, fontFamily: 'DM Sans' }}>{addError}</p>}
           {addSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginTop: 10, fontFamily: 'DM Sans' }}>✓ {addSuccess}</p>}
         </div>
       </div>
-
-      {/* Members table */}
       <SectionLabel>Registered members</SectionLabel>
-      {loading ? (
-        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
-      ) : members.length === 0 ? (
+      {loading ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : members.length === 0 ? (
         <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No members added yet.</p>
       ) : (
         <Table headers={['Membership no.', 'Complimentary', 'Reserve account', 'Added']}>
@@ -319,60 +273,74 @@ function ClubsTab({ token }: { token: string | null }) {
   )
 }
 
+// ─── Main admin page ──────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
 
-  // Data state
   const [overview, setOverview] = useState<any>(null)
   const [bookings, setBookings] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
+  const [guests, setGuests] = useState<any[]>([])
   const [reports, setReports] = useState<any>(null)
+
   const [loadingOverview, setLoadingOverview] = useState(true)
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [loadingGuests, setLoadingGuests] = useState(false)
   const [loadingReports, setLoadingReports] = useState(false)
 
-  // Modal state
-  const [grantModal, setGrantModal] = useState(false)
+  // Modals
   const [adjustModal, setAdjustModal] = useState(false)
+  const [offlineModal, setOfflineModal] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
+
+  // Adjust points form
   const [pointsAmount, setPointsAmount] = useState('')
   const [pointsReason, setPointsReason] = useState('')
   const [adjustLoading, setAdjustLoading] = useState(false)
   const [adjustSuccess, setAdjustSuccess] = useState('')
   const [adjustError, setAdjustError] = useState('')
 
+  // Offline customer form
+  const [offlineFirstName, setOfflineFirstName] = useState('')
+  const [offlineLastName, setOfflineLastName] = useState('')
+  const [offlineEmail, setOfflineEmail] = useState('')
+  const [offlinePhone, setOfflinePhone] = useState('')
+  const [offlinePoints, setOfflinePoints] = useState('')
+  const [offlineNotes, setOfflineNotes] = useState('')
+  const [offlineLoading, setOfflineLoading] = useState(false)
+  const [offlineSuccess, setOfflineSuccess] = useState('')
+  const [offlineError, setOfflineError] = useState('')
+
+  // Filters
   const [bookingFilter, setBookingFilter] = useState('All')
   const [customerSearch, setCustomerSearch] = useState('')
-  const [notifChannel, setNotifChannel] = useState('Both')
+  const [guestFilter, setGuestFilter] = useState('All')
+  const [guestSearch, setGuestSearch] = useState('')
 
   useEffect(() => {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap'
     document.head.appendChild(link)
-
     const t = localStorage.getItem('accessToken')
     if (!t) { window.location.href = '/admin/login'; return }
-    const isAdmin = localStorage.getItem('isAdmin')
-    if (!isAdmin) { window.location.href = '/admin/login'; return }
+    if (!localStorage.getItem('isAdmin')) { window.location.href = '/admin/login'; return }
     setToken(t)
-
     return () => { document.head.removeChild(link) }
   }, [])
 
-  useEffect(() => {
-    if (!token) return
-    fetchOverview()
-  }, [token])
+  useEffect(() => { if (token) fetchOverview() }, [token])
 
   useEffect(() => {
     if (!token) return
     if (tab === 'bookings' && bookings.length === 0) fetchBookings()
     if (tab === 'customers' && customers.length === 0) fetchCustomers()
+    if (tab === 'guests' && guests.length === 0) fetchGuests()
     if (tab === 'reports' && !reports) fetchReports()
+    if (tab === 'points' && !reports) fetchReports()
   }, [tab, token])
 
   const authHeaders = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
@@ -400,11 +368,21 @@ export default function AdminPage() {
   const fetchCustomers = async () => {
     setLoadingCustomers(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/customers?limit=50`, { headers: authHeaders() })
+      const res = await fetch(`${API_URL}/api/admin/customers?limit=100`, { headers: authHeaders() })
       const data = await res.json()
       if (data.success) setCustomers(data.data.customers)
     } catch (err) { console.error(err) }
     finally { setLoadingCustomers(false) }
+  }
+
+  const fetchGuests = async () => {
+    setLoadingGuests(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/guests?limit=100`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setGuests(data.data.guests)
+    } catch (err) { console.error(err) }
+    finally { setLoadingGuests(false) }
   }
 
   const fetchReports = async () => {
@@ -417,47 +395,79 @@ export default function AdminPage() {
     finally { setLoadingReports(false) }
   }
 
+  const handleExport = (type: 'customers' | 'guests') => {
+    window.open(`${API_URL}/api/admin/export?type=${type}&token=${token}`, '_blank')
+  }
+
+  const handleExportWithAuth = async (type: 'customers' | 'guests') => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/export?type=${type}`, { headers: { Authorization: `Bearer ${token}` } })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `soundhous-reserve-${type}-${Date.now()}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { console.error('Export failed') }
+  }
+
   const handleAdjustPoints = async () => {
     if (!selectedCustomer || !pointsAmount || !pointsReason) return
-    setAdjustLoading(true)
-    setAdjustError('')
-    setAdjustSuccess('')
+    setAdjustLoading(true); setAdjustError(''); setAdjustSuccess('')
     try {
-      const res = await fetch(
-        `${API_URL}/api/admin/customers/${selectedCustomer.id}/points`,
-        {
-          method: 'PATCH',
-          headers: authHeaders(),
-          body: JSON.stringify({ points: Number(pointsAmount), reason: pointsReason }),
-        }
-      )
+      const res = await fetch(`${API_URL}/api/admin/customers/${selectedCustomer.id}/points`, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ points: Number(pointsAmount), reason: pointsReason }),
+      })
       const data = await res.json()
       if (!data.success) { setAdjustError(data.message); return }
-      setAdjustSuccess(`Points adjusted. New balance: ${data.data.newBalance.toLocaleString()}`)
-      setPointsAmount('')
-      setPointsReason('')
-      fetchCustomers()
+      setAdjustSuccess(`Done. New balance: ${data.data.newBalance.toLocaleString()} pts`)
+      setPointsAmount(''); setPointsReason('')
+      setCustomers([])
+      setTimeout(() => fetchCustomers(), 500)
     } catch { setAdjustError('Something went wrong.') }
     finally { setAdjustLoading(false) }
   }
 
-  const filteredBookings = bookings.filter(b => {
-    if (bookingFilter === 'All') return true
-    return getRoomName(b.room) === bookingFilter
-  })
+  const handleCreateOfflineCustomer = async () => {
+    if (!offlineFirstName || !offlineLastName || !offlineEmail) {
+      setOfflineError('First name, last name, and email are required.')
+      return
+    }
+    setOfflineLoading(true); setOfflineError(''); setOfflineSuccess('')
+    try {
+      const res = await fetch(`${API_URL}/api/admin/customers/create-offline`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          firstName: offlineFirstName, lastName: offlineLastName,
+          email: offlineEmail, phone: offlinePhone,
+          pointsToCredit: Number(offlinePoints) || 0,
+          notes: offlineNotes,
+        }),
+      })
+      const data = await res.json()
+      if (!data.success) { setOfflineError(data.message); return }
+      setOfflineSuccess(data.message)
+      setOfflineFirstName(''); setOfflineLastName(''); setOfflineEmail('')
+      setOfflinePhone(''); setOfflinePoints(''); setOfflineNotes('')
+      setCustomers([])
+      setTimeout(() => fetchCustomers(), 500)
+    } catch { setOfflineError('Something went wrong.') }
+    finally { setOfflineLoading(false) }
+  }
 
+  const filteredBookings = bookings.filter(b => bookingFilter === 'All' || getRoomName(b.room) === bookingFilter)
   const filteredCustomers = customers.filter(c => {
     if (!customerSearch) return true
     const q = customerSearch.toLowerCase()
-    return (
-      c.email?.toLowerCase().includes(q) ||
-      c.firstName?.toLowerCase().includes(q) ||
-      c.lastName?.toLowerCase().includes(q)
-    )
+    return c.email?.toLowerCase().includes(q) || c.firstName?.toLowerCase().includes(q) || c.lastName?.toLowerCase().includes(q)
   })
-
-  const page: React.CSSProperties = { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }
-  const contentPad: React.CSSProperties = { padding: 'clamp(24px,3vw,36px) clamp(20px,3vw,36px)' }
+  const filteredGuests = guests.filter(g => {
+    const matchFilter = guestFilter === 'All' || g.rsvpStatus === guestFilter.toLowerCase()
+    const matchSearch = !guestSearch || g.fullName?.toLowerCase().includes(guestSearch.toLowerCase()) || g.email?.toLowerCase().includes(guestSearch.toLowerCase())
+    return matchFilter && matchSearch
+  })
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <aside style={{ width: mobile ? '100%' : 220, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0906', borderRight: '1px solid rgba(197,133,90,0.1)' }}>
@@ -469,7 +479,8 @@ export default function AdminPage() {
         {NAV_ITEMS.map(item => {
           const active = tab === item.id
           return (
-            <button key={item.id} onClick={() => { setTab(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', fontSize: 12, fontFamily: 'DM Sans', fontWeight: active ? 500 : 400, letterSpacing: '0.04em', textAlign: 'left', cursor: 'pointer', border: 'none', borderLeft: active ? '2px solid #C5855A' : '2px solid transparent', background: active ? 'rgba(197,133,90,0.07)' : 'transparent', color: active ? '#C5855A' : 'rgba(245,240,232,0.4)', transition: 'all 0.2s', outline: 'none' }}
+            <button key={item.id} onClick={() => { setTab(item.id); setSidebarOpen(false) }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', fontSize: 12, fontFamily: 'DM Sans', fontWeight: active ? 500 : 400, letterSpacing: '0.04em', textAlign: 'left', cursor: 'pointer', border: 'none', borderLeft: active ? '2px solid #C5855A' : '2px solid transparent', background: active ? 'rgba(197,133,90,0.07)' : 'transparent', color: active ? '#C5855A' : 'rgba(245,240,232,0.4)', transition: 'all 0.2s', outline: 'none' }}
               onMouseEnter={e => { if (!active) (e.currentTarget.style.color = 'rgba(245,240,232,0.75)') }}
               onMouseLeave={e => { if (!active) (e.currentTarget.style.color = 'rgba(245,240,232,0.4)') }}>
               <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0, color: active ? '#C5855A' : 'inherit' }}><NavIcon path={item.iconPath} /></span>
@@ -479,7 +490,8 @@ export default function AdminPage() {
         })}
       </nav>
       <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(197,133,90,0.08)' }}>
-        <button onClick={() => { localStorage.clear(); window.location.href = '/admin/login' }} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+        <button onClick={() => { localStorage.clear(); window.location.href = '/admin/login' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           onMouseEnter={e => ((e.target as HTMLElement).style.color = 'rgba(245,240,232,0.65)')}
           onMouseLeave={e => ((e.target as HTMLElement).style.color = 'rgba(245,240,232,0.25)')}>
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -490,7 +502,7 @@ export default function AdminPage() {
   )
 
   return (
-    <div style={page}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0E0C0A', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif' }}>
       <div style={{ display: 'none' }} className="admin-sidebar-desktop"><Sidebar /></div>
 
       {sidebarOpen && (
@@ -504,7 +516,7 @@ export default function AdminPage() {
         <header style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(16px,3vw,32px)', borderBottom: '1px solid rgba(197,133,90,0.1)', background: 'rgba(10,9,6,0.9)', backdropFilter: 'blur(12px)', flexShrink: 0, gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button onClick={() => setSidebarOpen(true)} className="admin-mobile-menu-btn" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', outline: 'none' }}>
-              {[0,1,2].map(i => <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'rgba(245,240,232,0.45)' }} />)}
+              {[0, 1, 2].map(i => <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'rgba(245,240,232,0.45)' }} />)}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', fontWeight: 500 }}>Admin</p>
@@ -512,21 +524,19 @@ export default function AdminPage() {
               <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.75)', fontWeight: 500 }}>{NAV_ITEMS.find(n => n.id === tab)?.label}</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'rgba(245,240,232,0.2)' }}>{new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
             <div style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(197,133,90,0.3)', background: 'rgba(197,133,90,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, color: '#C5855A' }}>A</div>
           </div>
         </header>
 
         <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={contentPad}>
+          <div style={{ padding: 'clamp(24px,3vw,36px) clamp(20px,3vw,36px)' }}>
 
             {/* ── OVERVIEW ── */}
             {tab === 'overview' && (
               <div>
-                {loadingOverview ? (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
-                ) : overview ? (
+                {loadingOverview ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : overview ? (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 36 }}>
                       <StatCard label="Bookings this month" value={String(overview.stats.bookingsThisMonth)} sub="confirmed sessions" accent />
@@ -534,7 +544,6 @@ export default function AdminPage() {
                       <StatCard label="Total members" value={String(overview.stats.totalMembers)} sub="all tiers" />
                       <StatCard label="Points redeemed" value={overview.stats.pointsRedeemedThisMonth.toLocaleString()} sub="this month" />
                     </div>
-
                     <div style={{ marginBottom: 36 }}>
                       <SectionLabel>Tier distribution</SectionLabel>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -549,12 +558,10 @@ export default function AdminPage() {
                         })}
                       </div>
                     </div>
-
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                       <SectionLabel>Recent bookings</SectionLabel>
                       <ActionBtn onClick={() => setTab('bookings')}>View all →</ActionBtn>
                     </div>
-
                     {overview.recentBookings.length === 0 ? (
                       <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No bookings yet.</p>
                     ) : (
@@ -572,25 +579,19 @@ export default function AdminPage() {
                       </Table>
                     )}
                   </>
-                ) : (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Failed to load overview.</p>
-                )}
+                ) : <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Failed to load overview.</p>}
               </div>
             )}
 
             {/* ── BOOKINGS ── */}
             {tab === 'bookings' && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {['All', 'Private Cinema', 'Hi-Fi Room', 'Media Room'].map(f => (
-                      <FilterPill key={f} label={f} active={bookingFilter === f} onClick={() => setBookingFilter(f)} />
-                    ))}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                  {['All', 'Private Cinema', 'Hi-Fi Room', 'Media Room'].map(f => (
+                    <FilterPill key={f} label={f} active={bookingFilter === f} onClick={() => setBookingFilter(f)} />
+                  ))}
                 </div>
-                {loadingBookings ? (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
-                ) : filteredBookings.length === 0 ? (
+                {loadingBookings ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : filteredBookings.length === 0 ? (
                   <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No bookings found.</p>
                 ) : (
                   <Table headers={['Customer', 'Room', 'Date', 'Time', 'Guests', 'Type', 'Amount', 'Status']}>
@@ -598,7 +599,7 @@ export default function AdminPage() {
                       <TR key={b.id}>
                         <TD>{b.customerName || b.customerEmail}</TD>
                         <TD>{getRoomName(b.room)}</TD>
-                        <TD mono>{b.bookingDate}</TD>
+                        <TD mono>{new Date(b.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
                         <TD mono>{b.timeSlot}</TD>
                         <TD>{b.guestCount}</TD>
                         <TD><PayPill type={b.paymentType} /></TD>
@@ -614,18 +615,21 @@ export default function AdminPage() {
             {/* ── CUSTOMERS ── */}
             {tab === 'customers' && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
                   <input type="text" placeholder="Search by name or email..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.15)', borderRadius: 2, padding: '10px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', width: '100%', maxWidth: 280 }}
                     onFocus={e => (e.target.style.borderColor = '#C5855A')}
                     onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.15)')} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <GhostBtn small onClick={() => handleExportWithAuth('customers')}>↓ Export CSV</GhostBtn>
+                    <PrimaryBtn small onClick={() => setOfflineModal(true)}>+ Add offline customer</PrimaryBtn>
+                  </div>
                 </div>
-                {loadingCustomers ? (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
-                ) : filteredCustomers.length === 0 ? (
+
+                {loadingCustomers ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : filteredCustomers.length === 0 ? (
                   <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No customers found.</p>
                 ) : (
-                  <Table headers={['Name', 'Email', 'Tier', 'Points', 'Annual spend', '']}>
+                  <Table headers={['Name', 'Email', 'Tier', 'Points', 'Annual spend', 'Verified', '']}>
                     {filteredCustomers.map(c => (
                       <TR key={c.id}>
                         <TD>{c.firstName} {c.lastName}</TD>
@@ -633,6 +637,11 @@ export default function AdminPage() {
                         <TD><TierPill tier={c.tier} /></TD>
                         <td style={{ padding: '13px 18px', fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 16, color: '#C5855A', whiteSpace: 'nowrap' }}>{c.pointsBalance.toLocaleString()}</td>
                         <TD mono>{formatCurrency(c.annualSpend)}</TD>
+                        <TD>
+                          <span style={{ fontSize: 11, color: c.emailVerified ? '#C5855A' : 'rgba(245,240,232,0.25)', fontFamily: 'DM Sans' }}>
+                            {c.emailVerified ? '✓ Yes' : '— No'}
+                          </span>
+                        </TD>
                         <TD>
                           <ActionBtn onClick={() => { setSelectedCustomer(c); setAdjustModal(true) }}>Adjust points</ActionBtn>
                         </TD>
@@ -643,7 +652,60 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* ── POINTS ── */}
+            {/* ── GUESTS & RSVPs ── */}
+            {tab === 'guests' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input type="text" placeholder="Search guest name or email..." value={guestSearch} onChange={e => setGuestSearch(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.15)', borderRadius: 2, padding: '10px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', width: '100%', maxWidth: 240 }}
+                      onFocus={e => (e.target.style.borderColor = '#C5855A')}
+                      onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.15)')} />
+                    {['All', 'Accepted', 'Pending', 'Declined'].map(f => (
+                      <FilterPill key={f} label={f} active={guestFilter === f} onClick={() => setGuestFilter(f)} />
+                    ))}
+                  </div>
+                  <GhostBtn small onClick={() => handleExportWithAuth('guests')}>↓ Export CSV</GhostBtn>
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 24 }}>
+                  {[
+                    { label: 'Total invited', value: guests.length, sub: 'across all bookings' },
+                    { label: 'Accepted', value: guests.filter(g => g.rsvpStatus === 'accepted').length, sub: 'confirmed attendance' },
+                    { label: 'Pending', value: guests.filter(g => g.rsvpStatus === 'pending').length, sub: 'awaiting response' },
+                    { label: 'Declined', value: guests.filter(g => g.rsvpStatus === 'declined').length, sub: 'will not attend' },
+                  ].map(s => (
+                    <div key={s.label} style={{ padding: '16px 18px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', marginBottom: 8, fontWeight: 500 }}>{s.label}</p>
+                      <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 24, color: '#F5F0E8', lineHeight: 1, marginBottom: 4 }}>{s.value}</p>
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{s.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {loadingGuests ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : filteredGuests.length === 0 ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No guests found.</p>
+                ) : (
+                  <Table headers={['Guest name', 'Guest email', 'RSVP', 'Ticket', 'Room', 'Date', 'Host', 'Invited']}>
+                    {filteredGuests.map(g => (
+                      <TR key={g.id}>
+                        <TD>{g.fullName}</TD>
+                        <TD>{g.email}</TD>
+                        <TD><RsvpPill status={g.rsvpStatus} /></TD>
+                        <TD mono>{g.ticketNumber || <span style={{ color: 'rgba(245,240,232,0.2)' }}>—</span>}</TD>
+                        <TD>{getRoomName(g.room)}</TD>
+                        <TD mono>{new Date(g.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</TD>
+                        <TD muted>{g.hostName}</TD>
+                        <TD mono>{new Date(g.invitedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</TD>
+                      </TR>
+                    ))}
+                  </Table>
+                )}
+              </div>
+            )}
+
+            {/* ── POINTS & TIERS ── */}
             {tab === 'points' && (
               <div>
                 {reports ? (
@@ -652,7 +714,7 @@ export default function AdminPage() {
                       <StatCard label="Points issued" value={reports.points.issued.toLocaleString()} sub="This month" />
                       <StatCard label="Points redeemed" value={reports.points.redeemed.toLocaleString()} sub="This month" accent />
                     </div>
-                    <SectionLabel>Bookings by room</SectionLabel>
+                    <SectionLabel>Revenue by room</SectionLabel>
                     <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden', marginBottom: 32 }}>
                       {reports.revenueByRoom.map((r: any, i: number, arr: any[]) => (
                         <div key={r.room} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.07)' : 'none' }}>
@@ -665,87 +727,64 @@ export default function AdminPage() {
                       ))}
                     </div>
                   </>
+                ) : loadingReports ? (
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
                 ) : (
                   <button onClick={fetchReports} style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>Load points data →</button>
                 )}
               </div>
             )}
 
+            {/* ── CLUBS ── */}
+            {tab === 'clubs' && <ClubsTab token={token} />}
+
             {/* ── REPORTS ── */}
             {tab === 'reports' && (
               <div>
-                {loadingReports ? (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
-                ) : reports ? (
+                {loadingReports ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : reports ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Bookings by room</p>
-                      </div>
-                      {reports.bookingsByRoom.map((r: any, i: number, arr: any[]) => (
-                        <div key={r.room} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{getRoomName(r.room)}</span>
-                          <div style={{ display: 'flex', gap: 14 }}>
-                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{r.bookings}</span>
-                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#C5855A' }}>{formatCurrency(r.revenue)}</span>
+                    {[
+                      {
+                        title: 'Bookings by room',
+                        rows: reports.bookingsByRoom.map((r: any) => ({ label: getRoomName(r.room), value: String(r.bookings), sub: formatCurrency(r.revenue) }))
+                      },
+                      {
+                        title: 'Bookings by type',
+                        rows: reports.bookingsByType.map((r: any) => ({ label: PAY_CONFIG[r.paymentType]?.label || r.paymentType, value: String(r.count), sub: '' }))
+                      },
+                      {
+                        title: 'Top customers',
+                        rows: reports.topCustomers.slice(0, 5).map((c: any) => ({ label: c.name, value: formatCurrency(c.annualSpend), sub: `${c.totalBookings} bookings` }))
+                      },
+                      {
+                        title: 'Loyalty overview',
+                        rows: [
+                          { label: 'Points issued', value: reports.points.issued.toLocaleString(), sub: 'this month' },
+                          { label: 'Points redeemed', value: reports.points.redeemed.toLocaleString(), sub: 'this month' },
+                          { label: 'Total members', value: String(overview?.stats?.totalMembers || '—'), sub: 'all tiers' },
+                        ]
+                      },
+                    ].map(card => (
+                      <div key={card.title} style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>{card.title}</p>
+                        </div>
+                        {card.rows.map((row: any, i: number) => (
+                          <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < card.rows.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
+                            <div>
+                              <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{row.label}</span>
+                              {row.sub && <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)', marginTop: 2 }}>{row.sub}</p>}
+                            </div>
+                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{row.value}</span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Bookings by type</p>
+                        ))}
                       </div>
-                      {reports.bookingsByType.map((r: any, i: number, arr: any[]) => (
-                        <div key={r.paymentType} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{PAY_CONFIG[r.paymentType]?.label || r.paymentType}</span>
-                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{r.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Top customers</p>
-                      </div>
-                      {reports.topCustomers.slice(0, 5).map((c: any, i: number, arr: any[]) => (
-                        <div key={c.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
-                          <div>
-                            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.7)' }}>{c.name}</p>
-                            <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{c.totalBookings} bookings</p>
-                          </div>
-                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#C5855A' }}>{formatCurrency(c.annualSpend)}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(197,133,90,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', fontWeight: 500 }}>Loyalty overview</p>
-                      </div>
-                      {[
-                        { label: 'Points issued', value: reports.points.issued.toLocaleString() },
-                        { label: 'Points redeemed', value: reports.points.redeemed.toLocaleString() },
-                        { label: 'Total members', value: String(overview?.stats?.totalMembers || '—') },
-                      ].map((row, i, arr) => (
-                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 18px', borderBottom: i < arr.length - 1 ? '1px solid rgba(197,133,90,0.06)' : 'none' }}>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.55)' }}>{row.label}</span>
-                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#F5F0E8', fontWeight: 500 }}>{row.value}</span>
-                        </div>
-                      ))}
-                    </div>
+                    ))}
                   </div>
-                ) : (
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No report data yet.</p>
-                )}
+                ) : <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No report data yet.</p>}
               </div>
             )}
 
-            {/* ── CLUBS, NOTIFICATIONS, SETTINGS — kept as-is (not connected to API yet) ── */}
-           {tab === 'clubs' && (
-  <ClubsTab token={token} />
-)}
-            {tab === 'notifications' && (
-              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Notification centre coming soon.</p>
-            )}
             {tab === 'settings' && (
               <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Settings coming soon.</p>
             )}
@@ -754,20 +793,51 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* Adjust points modal */}
+      {/* ── Adjust points modal ── */}
       {adjustModal && selectedCustomer && (
         <Modal
           title="Adjust points balance."
-          subtitle={`Adjusting points for ${selectedCustomer.firstName} ${selectedCustomer.lastName}. Current balance: ${selectedCustomer.pointsBalance.toLocaleString()} pts.`}
+          subtitle={`${selectedCustomer.firstName} ${selectedCustomer.lastName} · Current balance: ${selectedCustomer.pointsBalance.toLocaleString()} pts`}
           onClose={() => { setAdjustModal(false); setAdjustSuccess(''); setAdjustError('') }}
         >
-          <InputField label="Points adjustment" type="number" value={pointsAmount} onChange={e => setPointsAmount(e.target.value)} placeholder="+500 or -200" style={{ fontFamily: 'DM Mono, monospace' }} />
-          <InputField label="Reason (required)" value={pointsReason} onChange={e => setPointsReason(e.target.value)} placeholder="e.g. Campaign promotion" />
+          <InputField label="Points (use + or - amount)" type="number" value={pointsAmount} onChange={e => setPointsAmount(e.target.value)} placeholder="+500 or -200" style={{ fontFamily: 'DM Mono, monospace' }} />
+          <InputField label="Reason (required)" value={pointsReason} onChange={e => setPointsReason(e.target.value)} placeholder="e.g. In-store purchase, promotional credit" />
           {adjustError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12, fontFamily: 'DM Sans' }}>{adjustError}</p>}
-          {adjustSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginBottom: 12, fontFamily: 'DM Sans' }}>{adjustSuccess}</p>}
+          {adjustSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginBottom: 12, fontFamily: 'DM Sans' }}>✓ {adjustSuccess}</p>}
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
             <GhostBtn full onClick={() => { setAdjustModal(false); setAdjustSuccess(''); setAdjustError('') }}>Cancel</GhostBtn>
             <PrimaryBtn full onClick={handleAdjustPoints} disabled={adjustLoading}>{adjustLoading ? 'Saving...' : 'Apply adjustment'}</PrimaryBtn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Add offline customer modal ── */}
+      {offlineModal && (
+        <Modal
+          title="Add offline customer."
+          subtitle="For customers who purchase in-store. When they sign up online with this email, their points will already be in their account."
+          onClose={() => { setOfflineModal(false); setOfflineSuccess(''); setOfflineError('') }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <InputField label="First name" value={offlineFirstName} onChange={e => setOfflineFirstName(e.target.value)} placeholder="Adaeze" />
+            <InputField label="Last name" value={offlineLastName} onChange={e => setOfflineLastName(e.target.value)} placeholder="Okonkwo" />
+          </div>
+          <InputField label="Email address" type="email" value={offlineEmail} onChange={e => setOfflineEmail(e.target.value)} placeholder="customer@email.com" />
+          <InputField label="Phone (optional)" type="tel" value={offlinePhone} onChange={e => setOfflinePhone(e.target.value)} placeholder="+234 800 000 0000" />
+          <InputField label="Points to credit" type="number" value={offlinePoints} onChange={e => setOfflinePoints(e.target.value)} placeholder="e.g. 500" style={{ fontFamily: 'DM Mono, monospace' }} />
+          <InputField label="Notes (optional)" value={offlineNotes} onChange={e => setOfflineNotes(e.target.value)} placeholder="e.g. Bought Sonos Arc in store — 17 June 2026" />
+
+          <div style={{ padding: '12px 16px', border: '1px solid rgba(197,133,90,0.15)', borderRadius: 2, background: 'rgba(197,133,90,0.04)', marginBottom: 16 }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.5)', lineHeight: 1.65 }}>
+              If this email already has a Reserve account, the points will be credited directly. If not, the account is created and points are pre-loaded — they activate when the customer signs up.
+            </p>
+          </div>
+
+          {offlineError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12, fontFamily: 'DM Sans' }}>{offlineError}</p>}
+          {offlineSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginBottom: 12, fontFamily: 'DM Sans', lineHeight: 1.6 }}>✓ {offlineSuccess}</p>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <GhostBtn full onClick={() => { setOfflineModal(false); setOfflineSuccess(''); setOfflineError('') }}>Cancel</GhostBtn>
+            <PrimaryBtn full onClick={handleCreateOfflineCustomer} disabled={offlineLoading}>{offlineLoading ? 'Creating...' : 'Create customer'}</PrimaryBtn>
           </div>
         </Modal>
       )}
