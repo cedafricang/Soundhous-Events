@@ -92,6 +92,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-productio
 function formatCurrency(n: number) {
   return '₦' + n.toLocaleString('en-NG')
 }
+function toDateOnly(dateStr: string) {
+  return dateStr.split('T')[0]
+}
 
 function formatDate(s: string) {
   try {
@@ -196,7 +199,7 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
 function BookingRow({ booking, compact = false, onReschedule }: { booking: Booking; compact?: boolean; onReschedule?: (b: Booking) => void }) {
   const [hov, setHov] = useState(false)
   const today = new Date()
-  const sessionDate = new Date(booking.bookingDate)
+  const sessionDate = new Date(booking.bookingDate + 'T12:00:00')
   const hoursUntil = (sessionDate.getTime() - today.getTime()) / (1000 * 60 * 60)
   const canReschedule = hoursUntil > 48 && booking.rescheduleCount < 2 && booking.status !== 'cancelled'
   const reschedulesLeft = Math.max(0, 2 - booking.rescheduleCount)
@@ -216,7 +219,7 @@ function BookingRow({ booking, compact = false, onReschedule }: { booking: Booki
             </span>
           </div>
           <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', marginBottom: 4 }}>
-            {new Date(booking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {booking.timeSlot}
+            {new Date(booking.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
           <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.3)' }}>
             {booking.guestCount} guest{booking.guestCount > 1 ? 's' : ''} · {booking.amountPaid > 0 ? formatCurrency(booking.amountPaid) : booking.pointsUsed > 0 ? `${booking.pointsUsed.toLocaleString()} pts` : 'Complimentary'}
@@ -338,12 +341,12 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
     setRescheduleSuccess(true)
     // Update booking in state
     setBookings(prev => prev.map(b => b.id === rescheduleBooking.id ? {
-      ...b,
-      bookingDate: data.data.booking.bookingDate,
-      timeSlot: data.data.booking.timeSlot,
-      status: data.data.booking.status,
-      rescheduleCount: data.data.booking.rescheduleCount,
-    } : b))
+  ...b,
+  bookingDate: toDateOnly(data.data.booking.bookingDate),
+  timeSlot: data.data.booking.timeSlot,
+  status: data.data.booking.status,
+  rescheduleCount: data.data.booking.rescheduleCount,
+} : b))
   } catch { setRescheduleError('Something went wrong. Please try again.') }
   finally { setRescheduleLoading(false) }
 }
@@ -677,7 +680,7 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
           <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Reschedule booking</p>
           <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{getRoomName(rescheduleBooking.room)}</h3>
           <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.4)', marginBottom: 24 }}>
-            Currently: {new Date(rescheduleBooking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · {rescheduleBooking.timeSlot}
+            Currently: {new Date(rescheduleBooking.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}· {rescheduleBooking.timeSlot}
           </p>
 
           <div style={{ marginBottom: 20 }}>
