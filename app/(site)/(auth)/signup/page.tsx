@@ -21,7 +21,7 @@ export default function SignupPage() {
 
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
-  const ref = params.get('ref')
+  const ref = params.get('ref') || sessionStorage.getItem('referralCode') || ''
   if (ref) setReferralCode(ref)
 }, [])
 
@@ -89,6 +89,7 @@ useEffect(() => {
     localStorage.setItem('refreshToken', data.data.refreshToken)
     localStorage.setItem('customer', JSON.stringify(data.data.customer))
     setSignupComplete(true)
+    sessionStorage.removeItem('referralCode')
   } catch {
     setErrors({ email: 'Something went wrong. Please try again.' })
   } finally {

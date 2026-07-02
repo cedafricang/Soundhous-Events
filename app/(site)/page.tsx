@@ -105,6 +105,7 @@ function FadeIn({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
+  
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -364,6 +365,12 @@ function TierCard({ tier, index }: { tier: Tier; index: number }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const [heroLoaded, setHeroLoaded] = useState(false)
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const ref = params.get('ref')
+  if (ref) sessionStorage.setItem('referralCode', ref)
+}, [])
 
   useEffect(() => {
     const t = setTimeout(() => setHeroLoaded(true), 80)
