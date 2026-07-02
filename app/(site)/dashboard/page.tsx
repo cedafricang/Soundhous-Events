@@ -193,33 +193,74 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
   )
 }
 
-function BookingRow({ booking, compact = false }: { booking: Booking; compact?: boolean }) {
-  const isUpcoming = new Date(booking.bookingDate) >= new Date()
+function BookingRow({ booking, compact = false, onReschedule }: { booking: Booking; compact?: boolean; onReschedule?: (b: Booking) => void }) {
+  const [hov, setHov] = useState(false)
+  const today = new Date()
+  const sessionDate = new Date(booking.bookingDate)
+  const hoursUntil = (sessionDate.getTime() - today.getTime()) / (1000 * 60 * 60)
+  const canReschedule = hoursUntil > 48 && booking.rescheduleCount < 2 && booking.status !== 'cancelled'
+  const reschedulesLeft = Math.max(0, 2 - booking.rescheduleCount)
+
   return (
-    <div style={{ padding: compact ? '16px 20px' : '20px 24px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: '2px', background: isUpcoming ? 'rgba(197,133,90,0.04)' : 'rgba(255,255,255,0.015)', display: 'flex', alignItems: 'flex-start', gap: '16px', position: 'relative' }}>
-      {isUpcoming && <div style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: '#C5855A', borderRadius: '2px 0 0 2px' }} />}
-      <div style={{ width: 40, height: 40, borderRadius: '2px', background: 'rgba(197,133,90,0.1)', border: '1px solid rgba(197,133,90,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C5855A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8M12 8v8" />
-        </svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '4px' }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: '14px', fontWeight: 500, color: '#F5F0E8' }}>{getRoomName(booking.room)}</p>
-          <PayBadge type={booking.paymentType} />
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ padding: compact ? '16px 0' : '20px 24px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: hov ? 'rgba(197,133,90,0.03)' : 'rgba(255,255,255,0.01)', transition: 'background 0.2s', marginBottom: 10 }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 500, color: '#F5F0E8' }}>{getRoomName(booking.room)}</p>
+            <span style={{ padding: '2px 8px', fontSize: 9, fontFamily: 'DM Sans', letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: booking.status === 'confirmed' || booking.status === 'rescheduled' ? 'rgba(197,133,90,0.1)' : 'rgba(255,255,255,0.04)', color: booking.status === 'confirmed' || booking.status === 'rescheduled' ? '#C5855A' : 'rgba(245,240,232,0.3)', border: `1px solid ${booking.status === 'confirmed' || booking.status === 'rescheduled' ? 'rgba(197,133,90,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+              {booking.status === 'rescheduled' ? 'Rescheduled' : booking.status}
+            </span>
+          </div>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', marginBottom: 4 }}>
+            {new Date(booking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {booking.timeSlot}
+          </p>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.3)' }}>
+            {booking.guestCount} guest{booking.guestCount > 1 ? 's' : ''} · {booking.amountPaid > 0 ? formatCurrency(booking.amountPaid) : booking.pointsUsed > 0 ? `${booking.pointsUsed.toLocaleString()} pts` : 'Complimentary'}
+          </p>
         </div>
-        <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: 'rgba(245,240,232,0.4)', marginBottom: '2px' }}>
-          {formatDate(booking.bookingDate)} · {booking.timeSlot} · {booking.guestCount} guest{booking.guestCount > 1 ? 's' : ''}
-        </p>
-        {booking.amountPaid > 0 && <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: 'rgba(245,240,232,0.3)' }}>{formatCurrency(booking.amountPaid)}</p>}
-        {booking.pointsUsed > 0 && <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#C5855A' }}>{booking.pointsUsed.toLocaleString()} points redeemed</p>}
+
+        {!compact && onReschedule && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            {canReschedule ? (
+              <>
+                <button
+                  onClick={() => onReschedule(booking)}
+                  style={{ padding: '8px 16px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: '1px solid rgba(197,133,90,0.25)', borderRadius: 2, background: 'transparent', color: 'rgba(245,240,232,0.5)', transition: 'all 0.2s', outline: 'none' }}
+                  onMouseEnter={e => { (e.target as HTMLElement).style.color = '#C5855A'; (e.target as HTMLElement).style.borderColor = '#C5855A' }}
+                  onMouseLeave={e => { (e.target as HTMLElement).style.color = 'rgba(245,240,232,0.5)'; (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.25)' }}
+                >
+                  Reschedule
+                </button>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'rgba(245,240,232,0.2)', textAlign: 'right' }}>
+                  {reschedulesLeft} reschedule{reschedulesLeft !== 1 ? 's' : ''} left
+                </p>
+              </>
+            ) : booking.rescheduleCount >= 2 ? (
+              <p style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'rgba(245,240,232,0.2)', textAlign: 'right' }}>Max reschedules reached</p>
+            ) : hoursUntil <= 48 && hoursUntil > 0 ? (
+              <p style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'rgba(245,240,232,0.2)', textAlign: 'right' }}>Within 48h — no changes</p>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const [rescheduleModal, setRescheduleModal] = useState(false)
+const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null)
+const [rescheduleDate, setRescheduleDate] = useState('')
+const [rescheduleSlot, setRescheduleSlot] = useState('')
+const [rescheduleSlots, setRescheduleSlots] = useState<{ time: string; available: boolean }[]>([])
+const [rescheduleLoadingSlots, setRescheduleLoadingSlots] = useState(false)
+const [rescheduleLoading, setRescheduleLoading] = useState(false)
+const [rescheduleError, setRescheduleError] = useState('')
+const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
   const [tab, setTab] = useState<Tab>('overview')
   const [copied, setCopied] = useState(false)
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -227,6 +268,16 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [referral, setReferral] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+  if (!rescheduleBooking || !rescheduleDate) { setRescheduleSlots([]); return }
+  setRescheduleLoadingSlots(true)
+  fetch(`${API_URL}/api/bookings/availability?room=${rescheduleBooking.room}&date=${rescheduleDate}`)
+    .then(res => res.json())
+    .then(data => { if (data.success) setRescheduleSlots(data.data.slots); else setRescheduleSlots([]) })
+    .catch(() => setRescheduleSlots([]))
+    .finally(() => setRescheduleLoadingSlots(false))
+}, [rescheduleBooking, rescheduleDate])
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -271,6 +322,31 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }
+
+  const handleReschedule = async () => {
+  if (!rescheduleBooking || !rescheduleDate || !rescheduleSlot) return
+  setRescheduleError(''); setRescheduleLoading(true)
+  try {
+    const token = localStorage.getItem('accessToken')
+    const res = await fetch(`${API_URL}/api/bookings/${rescheduleBooking.id}/reschedule`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ newDate: rescheduleDate, newTimeSlot: rescheduleSlot }),
+    })
+    const data = await res.json()
+    if (!data.success) { setRescheduleError(data.message); return }
+    setRescheduleSuccess(true)
+    // Update booking in state
+    setBookings(prev => prev.map(b => b.id === rescheduleBooking.id ? {
+      ...b,
+      bookingDate: data.data.booking.bookingDate,
+      timeSlot: data.data.booking.timeSlot,
+      status: data.data.booking.status,
+      rescheduleCount: data.data.booking.rescheduleCount,
+    } : b))
+  } catch { setRescheduleError('Something went wrong. Please try again.') }
+  finally { setRescheduleLoading(false) }
+}
 
   const handleCopy = () => {
     const link = referral?.referralLink || `https://bookings.soundhous.com?ref=${customer?.referralCode}`
@@ -475,7 +551,18 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {bookings.map((b, i) => <FadeIn key={b.id} delay={i * 50}><BookingRow booking={b} /></FadeIn>)}
+                {bookings.map((b, i) => (
+  <FadeIn key={b.id} delay={i * 50}>
+    <BookingRow booking={b} onReschedule={(booking) => {
+      setRescheduleBooking(booking)
+      setRescheduleDate('')
+      setRescheduleSlot('')
+      setRescheduleError('')
+      setRescheduleSuccess(false)
+      setRescheduleModal(true)
+    }} />
+  </FadeIn>
+))}
               </div>
             )}
           </FadeIn>
@@ -580,6 +667,102 @@ export default function DashboardPage() {
         <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>© 2026 Soundhous · 17 Adeyemo Alakija Street, Victoria Island, Lagos</p>
         <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>reserve.soundhous.com</p>
       </div>
+      {rescheduleModal && rescheduleBooking && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+    <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 480, boxShadow: '0 32px 80px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <button onClick={() => setRescheduleModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+
+      {!rescheduleSuccess ? (
+        <>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Reschedule booking</p>
+          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{getRoomName(rescheduleBooking.room)}</h3>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.4)', marginBottom: 24 }}>
+            Currently: {new Date(rescheduleBooking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · {rescheduleBooking.timeSlot}
+          </p>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>New date</label>
+            <input
+              type="date"
+              min={new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              value={rescheduleDate}
+              onChange={e => { setRescheduleDate(e.target.value); setRescheduleSlot('') }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: '12px 14px', fontSize: 14, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+            />
+          </div>
+
+          {rescheduleDate && (
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 12, fontWeight: 500 }}>Available sessions</label>
+              {rescheduleLoadingSlots ? (
+                <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Checking availability...</p>
+              ) : rescheduleSlots.length === 0 ? (
+                <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No slots available for this date.</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {rescheduleSlots.map(slot => {
+                    const active = rescheduleSlot === slot.time
+                    const taken = !slot.available
+                    return (
+                      <button key={slot.time} disabled={taken} onClick={() => !taken && setRescheduleSlot(slot.time)}
+                        style={{ padding: '10px 18px', fontSize: 13, fontFamily: 'DM Sans', cursor: taken ? 'not-allowed' : 'pointer', border: active ? '1px solid #C5855A' : taken ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(197,133,90,0.18)', borderRadius: 2, background: active ? '#C5855A' : 'transparent', color: active ? '#0E0C0A' : taken ? 'rgba(245,240,232,0.15)' : 'rgba(245,240,232,0.6)', textDecoration: taken ? 'line-through' : 'none', transition: 'all 0.2s', outline: 'none', fontWeight: active ? 600 : 400 }}>
+                        {slot.time}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ padding: '12px 16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.015)', marginBottom: 20 }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65 }}>
+              You have <strong style={{ color: '#F5F0E8' }}>{Math.max(0, 2 - rescheduleBooking.rescheduleCount)} reschedule{Math.max(0, 2 - rescheduleBooking.rescheduleCount) !== 1 ? 's' : ''}</strong> remaining on this booking. Rescheduling closes 48 hours before your session.
+            </p>
+          </div>
+
+          {rescheduleError && (
+            <div style={{ padding: '12px 14px', border: '1px solid rgba(220,80,80,0.25)', borderRadius: 2, background: 'rgba(220,80,80,0.05)', marginBottom: 16 }}>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(220,80,80,0.85)' }}>{rescheduleError}</p>
+              {rescheduleError.includes('WhatsApp') && (
+                <a href="https://wa.me/2349027549690" target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', textDecoration: 'none', fontWeight: 500, display: 'inline-block', marginTop: 6 }}>
+                  Contact on WhatsApp →
+                </a>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setRescheduleModal(false)} style={{ flex: 1, padding: '13px', background: 'transparent', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, color: 'rgba(245,240,232,0.4)', cursor: 'pointer', outline: 'none' }}>
+              Cancel
+            </button>
+            <button
+              onClick={handleReschedule}
+              disabled={rescheduleLoading || !rescheduleDate || !rescheduleSlot}
+              style={{ flex: 2, padding: '13px', background: rescheduleLoading || !rescheduleDate || !rescheduleSlot ? 'rgba(197,133,90,0.35)' : '#C5855A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, color: rescheduleLoading || !rescheduleDate || !rescheduleSlot ? 'rgba(245,240,232,0.3)' : '#0E0C0A', cursor: rescheduleLoading || !rescheduleDate || !rescheduleSlot ? 'not-allowed' : 'pointer', outline: 'none', transition: 'all 0.2s' }}
+            >
+              {rescheduleLoading ? 'Rescheduling...' : 'Confirm reschedule →'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid rgba(197,133,90,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 0 32px rgba(197,133,90,0.15)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#C5855A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </div>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12 }}>Done</p>
+          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 10 }}>Booking rescheduled.</h3>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.45)', lineHeight: 1.7, marginBottom: 24 }}>
+            Your session has been moved. Check your bookings for the updated details.
+          </p>
+          <button onClick={() => setRescheduleModal(false)} style={{ padding: '12px 28px', background: '#C5855A', color: '#0E0C0A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, cursor: 'pointer' }}>
+            Done
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
     </div>
   )
 }
