@@ -17,6 +17,14 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false)
   const [mounted, setMounted] = useState(false)
 
+  const [referralCode, setReferralCode] = useState('')
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const ref = params.get('ref')
+  if (ref) setReferralCode(ref)
+}, [])
+
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60)
     const link = document.createElement('link')
@@ -68,6 +76,7 @@ export default function SignupPage() {
           email,
           phone,
           password,
+          referralCode: referralCode || undefined,
         }),
       }
     )
