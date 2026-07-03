@@ -95,6 +95,11 @@ function formatCurrency(n: number) {
 function toDateOnly(dateStr: string) {
   return dateStr.split('T')[0]
 }
+function safeDate(dateStr: string) {
+  if (!dateStr) return new Date()
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  return new Date(clean + 'T12:00:00')
+}
 
 function formatDate(s: string) {
   try {
@@ -199,7 +204,7 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
 function BookingRow({ booking, compact = false, onReschedule }: { booking: Booking; compact?: boolean; onReschedule?: (b: Booking) => void }) {
   const [hov, setHov] = useState(false)
   const today = new Date()
-  const sessionDate = new Date(booking.bookingDate + 'T12:00:00')
+  const sessionDate = safeDate(booking.bookingDate)
   const hoursUntil = (sessionDate.getTime() - today.getTime()) / (1000 * 60 * 60)
   const canReschedule = hoursUntil > 48 && booking.rescheduleCount < 2 && booking.status !== 'cancelled'
   const reschedulesLeft = Math.max(0, 2 - booking.rescheduleCount)
@@ -219,7 +224,7 @@ function BookingRow({ booking, compact = false, onReschedule }: { booking: Booki
             </span>
           </div>
           <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', marginBottom: 4 }}>
-            {new Date(booking.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+           {safeDate(booking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
           <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.3)' }}>
             {booking.guestCount} guest{booking.guestCount > 1 ? 's' : ''} · {booking.amountPaid > 0 ? formatCurrency(booking.amountPaid) : booking.pointsUsed > 0 ? `${booking.pointsUsed.toLocaleString()} pts` : 'Complimentary'}
@@ -680,7 +685,7 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
           <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Reschedule booking</p>
           <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{getRoomName(rescheduleBooking.room)}</h3>
           <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.4)', marginBottom: 24 }}>
-            Currently: {new Date(rescheduleBooking.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}· {rescheduleBooking.timeSlot}
+            Currently: {safeDate(rescheduleBooking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}· {rescheduleBooking.timeSlot}
           </p>
 
           <div style={{ marginBottom: 20 }}>
