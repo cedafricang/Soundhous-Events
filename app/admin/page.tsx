@@ -25,6 +25,11 @@ const NAV_ITEMS: { id: AdminTab; label: string; iconPath: string }[] = [
 
 function formatCurrency(n: number) { return '₦' + n.toLocaleString('en-NG') }
 function getRoomName(id: string) { return ROOMS.find(r => r.id === id)?.name || id }
+function safeDate(dateStr: string) {
+  if (!dateStr) return new Date()
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  return new Date(clean + 'T12:00:00')
+}
 
 const TIER_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   'reserve-member': { label: 'Reserve Member', color: 'rgba(245,240,232,0.45)', dot: 'rgba(245,240,232,0.4)' },
@@ -885,7 +890,7 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
           {/* Booking info */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
             {[
-              { label: 'Date', value: new Date(selectedBookingDetail.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
+              { label: 'Date', value: safeDate(selectedBookingDetail.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
               { label: 'Time', value: selectedBookingDetail.timeSlot },
               { label: 'Status', value: selectedBookingDetail.status },
               { label: 'Payment', value: PAY_CONFIG[selectedBookingDetail.paymentType]?.label || selectedBookingDetail.paymentType },
