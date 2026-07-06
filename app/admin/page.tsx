@@ -136,10 +136,15 @@ function Table({ headers, children }: { headers: string[]; children: React.React
   )
 }
 
-function TR({ children }: { children: React.ReactNode }) {
+function TR({ children, onClick, style }: { children: React.ReactNode; onClick?: () => void; style?: React.CSSProperties }) {
   const [hov, setHov] = useState(false)
   return (
-    <tr onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ borderBottom: '1px solid rgba(197,133,90,0.06)', background: hov ? 'rgba(197,133,90,0.03)' : 'transparent', transition: 'background 0.15s' }}>
+    <tr
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ borderBottom: '1px solid rgba(197,133,90,0.06)', background: hov ? 'rgba(197,133,90,0.03)' : 'transparent', transition: 'background 0.15s', ...style }}
+    >
       {children}
     </tr>
   )
@@ -290,6 +295,9 @@ export default function AdminPage() {
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [loadingGuests, setLoadingGuests] = useState(false)
   const [loadingReports, setLoadingReports] = useState(false)
+  const [bookingDetailModal, setBookingDetailModal] = useState(false)
+const [selectedBookingDetail, setSelectedBookingDetail] = useState<any>(null)
+const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
 
   // Modals
   const [adjustModal, setAdjustModal] = useState(false)
@@ -344,6 +352,18 @@ export default function AdminPage() {
   }, [tab, token])
 
   const authHeaders = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
+
+  const fetchBookingDetail = async (bookingId: string) => {
+  setLoadingBookingDetail(true)
+  setBookingDetailModal(true)
+  setSelectedBookingDetail(null)
+  try {
+    const res = await fetch(`${API_URL}/api/admin/bookings/${bookingId}`, { headers: authHeaders() })
+    const data = await res.json()
+    if (data.success) setSelectedBookingDetail(data.data.booking)
+  } catch (err) { console.error(err) }
+  finally { setLoadingBookingDetail(false) }
+}
 
   const fetchOverview = async () => {
     setLoadingOverview(true)
@@ -596,7 +616,7 @@ export default function AdminPage() {
                 ) : (
                   <Table headers={['Customer', 'Room', 'Date', 'Time', 'Guests', 'Type', 'Amount', 'Status']}>
                     {filteredBookings.map(b => (
-                      <TR key={b.id}>
+  <TR key={b.id} onClick={() => fetchBookingDetail(b.id)} style={{ cursor: 'pointer' }}>
                         <TD>{b.customerName || b.customerEmail}</TD>
                         <TD>{getRoomName(b.room)}</TD>
                         <TD mono>{new Date(b.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
@@ -846,6 +866,111 @@ export default function AdminPage() {
         @media (min-width: 1024px) { .admin-sidebar-desktop { display: flex !important; } .admin-mobile-menu-btn { display: none !important; } }
         @media (max-width: 1023px) { .admin-sidebar-desktop { display: none !important; } .admin-mobile-menu-btn { display: flex !important; } }
       `}</style>
+      {/* ── Booking detail modal ── */}
+{bookingDetailModal && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+    <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 600, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <button onClick={() => setBookingDetailModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+
+      {loadingBookingDetail ? (
+        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading booking...</p>
+      ) : selectedBookingDetail ? (
+        <>
+          <div style={{ marginBottom: 24 }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 8, fontWeight: 500 }}>Booking detail</p>
+            <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 4 }}>{getRoomName(selectedBookingDetail.room)}</h3>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>{selectedBookingDetail.id}</p>
+          </div>
+
+          {/* Booking info */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+            {[
+              { label: 'Date', value: new Date(selectedBookingDetail.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
+              { label: 'Time', value: selectedBookingDetail.timeSlot },
+              { label: 'Status', value: selectedBookingDetail.status },
+              { label: 'Payment', value: PAY_CONFIG[selectedBookingDetail.paymentType]?.label || selectedBookingDetail.paymentType },
+              { label: 'Amount paid', value: selectedBookingDetail.amountPaid > 0 ? formatCurrency(selectedBookingDetail.amountPaid) : '—' },
+              { label: 'Points used', value: selectedBookingDetail.pointsUsed > 0 ? selectedBookingDetail.pointsUsed.toLocaleString() : '—' },
+              { label: 'Refreshments', value: selectedBookingDetail.refreshment || 'None' },
+              { label: 'Refreshment fee', value: selectedBookingDetail.refreshmentAmount > 0 ? formatCurrency(selectedBookingDetail.refreshmentAmount) : '—' },
+              { label: 'Guests', value: `${selectedBookingDetail.guestCount} total` },
+              { label: 'Reschedules used', value: `${selectedBookingDetail.rescheduleCount} of 2` },
+              { label: 'Booked on', value: new Date(selectedBookingDetail.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) },
+            ].map(row => (
+              <div key={row.label} style={{ padding: '12px 16px', border: '1px solid rgba(197,133,90,0.08)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', marginBottom: 6, fontWeight: 500 }}>{row.label}</p>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#F5F0E8' }}>{row.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Ticket number */}
+          <div style={{ padding: '16px 20px', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, background: 'rgba(197,133,90,0.06)', marginBottom: 24, textAlign: 'center' }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8 }}>Host ticket number</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 20, letterSpacing: '0.12em', color: '#C5855A', fontWeight: 600 }}>{selectedBookingDetail.ticketNumber || '—'}</p>
+          </div>
+
+          {/* Customer info */}
+          <div style={{ marginBottom: 24 }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 12, fontWeight: 500 }}>Booked by</p>
+            <div style={{ padding: '16px 20px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 14, color: '#F5F0E8', fontWeight: 500, marginBottom: 4 }}>{selectedBookingDetail.customer.name}</p>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', marginBottom: 4 }}>{selectedBookingDetail.customer.email}</p>
+                  {selectedBookingDetail.customer.phone && (
+                    <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)' }}>{selectedBookingDetail.customer.phone}</p>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <TierPill tier={selectedBookingDetail.customer.tier} />
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)', marginTop: 6 }}>{selectedBookingDetail.customer.pointsBalance.toLocaleString()} pts</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Guests */}
+          {selectedBookingDetail.guests.length > 0 && (
+            <div>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 12, fontWeight: 500 }}>
+                Guests ({selectedBookingDetail.guests.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {selectedBookingDetail.guests.map((g: any) => (
+                  <div key={g.id} style={{ padding: '14px 16px', border: '1px solid rgba(197,133,90,0.08)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: g.ticketNumber ? 8 : 0 }}>
+                      <div>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#F5F0E8', fontWeight: 500, marginBottom: 2 }}>{g.fullName}</p>
+                        <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)' }}>{g.email}</p>
+                      </div>
+                      <RsvpPill status={g.rsvpStatus} />
+                    </div>
+                    {g.ticketNumber && (
+                      <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(197,133,90,0.06)', borderRadius: 2, border: '1px solid rgba(197,133,90,0.15)' }}>
+                        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#C5855A', letterSpacing: '0.08em' }}>{g.ticketNumber}</p>
+                      </div>
+                    )}
+                    {!g.ticketNumber && g.rsvpStatus === 'pending' && (
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.2)', marginTop: 6 }}>Awaiting RSVP — no ticket yet</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedBookingDetail.guests.length === 0 && (
+            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No guests invited for this booking.</p>
+          )}
+        </>
+      ) : (
+        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Failed to load booking details.</p>
+      )}
+    </div>
+  </div>
+)}
     </div>
   )
+  
 }
