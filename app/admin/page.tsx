@@ -196,93 +196,320 @@ function NavIcon({ path }: { path: string }) {
 }
 
 // ─── Clubs tab ────────────────────────────────────────────────────────────────
+// ─── REPLACE the entire ClubsTab function in app/admin/page.tsx with this ───
+
 function ClubsTab({ token }: { token: string | null }) {
-  const [members, setMembers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newNumber, setNewNumber] = useState('')
+  const [clubs, setClubs] = useState<any[]>([])
+  const [loadingClubs, setLoadingClubs] = useState(true)
+  const [selectedClub, setSelectedClub] = useState<any>(null)
+  const [membershipIds, setMembershipIds] = useState<any[]>([])
+  const [loadingIds, setLoadingIds] = useState(false)
+
+  // Create club form
+  const [createModal, setCreateModal] = useState(false)
+  const [clubName, setClubName] = useState('')
+  const [clubDesc, setClubDesc] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [createSuccess, setCreateSuccess] = useState('')
+
+  // Add IDs form
+  const [addModal, setAddModal] = useState(false)
+  const [newCodes, setNewCodes] = useState('')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
   const [addSuccess, setAddSuccess] = useState('')
 
-  useEffect(() => { fetchMembers() }, [])
+  // Filter
+  const [idFilter, setIdFilter] = useState<'all' | 'claimed' | 'unclaimed'>('all')
 
-  const fetchMembers = async () => {
-    setLoading(true)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
+  const authHeaders = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
+
+  useEffect(() => { fetchClubs() }, [])
+
+  const fetchClubs = async () => {
+    setLoadingClubs(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/clubs/ikoyi/members?limit=100`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`${API_URL}/api/admin/clubs`, { headers: authHeaders() })
       const data = await res.json()
-      if (data.success) setMembers(data.data.members)
+      if (data.success) setClubs(data.data.clubs)
     } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    finally { setLoadingClubs(false) }
   }
 
-  const handleAdd = async () => {
-    setAddError(''); setAddSuccess('')
-    if (!newNumber.trim()) { setAddError('Please enter a membership number.'); return }
-    setAdding(true)
+  const fetchMembershipIds = async (clubId: string) => {
+    setLoadingIds(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/clubs/ikoyi/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ membershipNumber: newNumber.trim().toUpperCase() }),
+      const res = await fetch(`${API_URL}/api/admin/clubs/${clubId}/membership-ids`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.success) setMembershipIds(data.data.ids)
+    } catch (err) { console.error(err) }
+    finally { setLoadingIds(false) }
+  }
+
+  const handleSelectClub = (club: any) => {
+    setSelectedClub(club)
+    fetchMembershipIds(club.id)
+    setIdFilter('all')
+  }
+
+  const handleCreateClub = async () => {
+    if (!clubName.trim()) { setCreateError('Club name is required.'); return }
+    setCreating(true); setCreateError(''); setCreateSuccess('')
+    try {
+      const res = await fetch(`${API_URL}/api/admin/clubs`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ name: clubName.trim(), description: clubDesc.trim() }),
       })
       const data = await res.json()
-      if (!data.success) { setAddError(data.message || 'Failed to add member.'); return }
-      setAddSuccess(`${newNumber.trim().toUpperCase()} added.`)
-      setNewNumber('')
-      fetchMembers()
+      if (!data.success) { setCreateError(data.message); return }
+      setCreateSuccess(`${clubName} created successfully.`)
+      setClubName(''); setClubDesc('')
+      fetchClubs()
+    } catch { setCreateError('Something went wrong.') }
+    finally { setCreating(false) }
+  }
+
+  const handleAddIds = async () => {
+    const codes = newCodes.split('\n').map(c => c.trim()).filter(Boolean)
+    if (codes.length === 0) { setAddError('Please enter at least one membership code.'); return }
+    setAdding(true); setAddError(''); setAddSuccess('')
+    try {
+      const res = await fetch(`${API_URL}/api/admin/clubs/${selectedClub.id}/membership-ids`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ codes }),
+      })
+      const data = await res.json()
+      if (!data.success) { setAddError(data.message); return }
+      setAddSuccess(data.message)
+      setNewCodes('')
+      fetchMembershipIds(selectedClub.id)
+      fetchClubs()
     } catch { setAddError('Something went wrong.') }
     finally { setAdding(false) }
   }
 
+  const handleExport = async () => {
+    if (!selectedClub) return
+    try {
+      const res = await fetch(`${API_URL}/api/admin/clubs/${selectedClub.id}/membership-ids/export`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selectedClub.name}-membership-ids.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { console.error('Export failed') }
+  }
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+      // Skip header row if it looks like a header
+      const codes = lines.filter(l => !l.toLowerCase().includes('membership') && !l.toLowerCase().includes('code'))
+      setNewCodes(codes.join('\n'))
+      setAddModal(true)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const filteredIds = membershipIds.filter(id => {
+    if (idFilter === 'claimed') return id.claimed
+    if (idFilter === 'unclaimed') return !id.claimed
+    return true
+  })
+
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 36 }}>
-        <StatCard label="Total members" value={String(members.length)} sub="Ikoyi Club" />
-        <StatCard label="Complimentary used" value={String(members.filter(m => m.complimentaryUsed).length)} sub={`of ${members.length} members`} accent />
-        <StatCard label="Reserve accounts" value={String(members.filter(m => m.customerEmail).length)} sub="converted members" />
-      </div>
-      <div style={{ marginBottom: 32 }}>
-        <SectionLabel>Add Ikoyi Club member</SectionLabel>
-        <div style={{ border: '1px solid rgba(197,133,90,0.12)', borderRadius: 2, padding: 24, background: 'rgba(255,255,255,0.01)', maxWidth: 480 }}>
-          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: 20 }}>Add a membership number to allow that Ikoyi Club member to verify and book through Reserve.</p>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Membership number</label>
-              <input type="text" value={newNumber} onChange={e => { setNewNumber(e.target.value); setAddError(''); setAddSuccess('') }} onKeyDown={e => e.key === 'Enter' && handleAdd()} placeholder="e.g. IK-0001"
-                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => (e.target.style.borderColor = '#C5855A')}
-                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')} />
-            </div>
-            <PrimaryBtn onClick={handleAdd} disabled={adding}>{adding ? 'Adding...' : 'Add member'}</PrimaryBtn>
-          </div>
-          {addError && <p style={{ fontSize: 12, color: 'rgba(220,80,80,0.8)', marginTop: 10, fontFamily: 'DM Sans' }}>{addError}</p>}
-          {addSuccess && <p style={{ fontSize: 12, color: '#C5855A', marginTop: 10, fontFamily: 'DM Sans' }}>✓ {addSuccess}</p>}
+    <div style={{ display: 'grid', gridTemplateColumns: selectedClub ? '280px 1fr' : '1fr', gap: 24, minHeight: 400 }}>
+
+      {/* Left — club list */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <SectionLabel>Clubs</SectionLabel>
+          <button onClick={() => { setCreateModal(true); setCreateError(''); setCreateSuccess('') }}
+            style={{ fontSize: 11, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>
+            + New club
+          </button>
         </div>
+
+        {loadingClubs ? (
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+        ) : clubs.length === 0 ? (
+          <div style={{ padding: '24px', border: '1px dashed rgba(197,133,90,0.2)', borderRadius: 2, textAlign: 'center' }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', marginBottom: 12 }}>No clubs yet.</p>
+            <button onClick={() => setCreateModal(true)}
+              style={{ fontSize: 11, color: '#C5855A', background: 'transparent', border: '1px solid rgba(197,133,90,0.3)', borderRadius: 2, padding: '8px 16px', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Create first club
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {clubs.map((club: any) => (
+              <div key={club.id} onClick={() => handleSelectClub(club)}
+                style={{ padding: '16px', border: `1px solid ${selectedClub?.id === club.id ? 'rgba(197,133,90,0.5)' : 'rgba(197,133,90,0.1)'}`, borderRadius: 2, background: selectedClub?.id === club.id ? 'rgba(197,133,90,0.07)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 15, color: '#F5F0E8', fontWeight: 400 }}>{club.name}</p>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: club.active ? '#C5855A' : 'rgba(245,240,232,0.2)', display: 'inline-block' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.35)' }}>{club.total_ids} IDs</p>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: '#C5855A' }}>{club.claimed_count} claimed</p>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)' }}>{Number(club.total_ids) - Number(club.claimed_count)} free</p>
+                </div>
+                <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'rgba(245,240,232,0.2)', marginTop: 6 }}>
+                  bookings.soundhous.com/club/{club.slug}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <SectionLabel>Registered members</SectionLabel>
-      {loading ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : members.length === 0 ? (
-        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No members added yet.</p>
-      ) : (
-        <Table headers={['Membership no.', 'Complimentary', 'Reserve account', 'Added']}>
-          {members.map(m => (
-            <TR key={m.id}>
-              <TD mono>{m.membershipNumber}</TD>
-              <TD>
-                <span style={{ padding: '3px 9px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: m.complimentaryUsed ? 'rgba(255,255,255,0.04)' : 'rgba(197,133,90,0.08)', color: m.complimentaryUsed ? 'rgba(245,240,232,0.3)' : '#C5855A', border: `1px solid ${m.complimentaryUsed ? 'rgba(255,255,255,0.08)' : 'rgba(197,133,90,0.25)'}` }}>
-                  {m.complimentaryUsed ? 'Used' : 'Available'}
-                </span>
-              </TD>
-              <TD>{m.customerEmail || <span style={{ color: 'rgba(245,240,232,0.25)' }}>Not registered</span>}</TD>
-              <TD mono>{new Date(m.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
-            </TR>
-          ))}
-        </Table>
+
+      {/* Right — membership IDs */}
+      {selectedClub && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 18, color: '#F5F0E8', marginBottom: 2 }}>{selectedClub.name}</p>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.3)' }}>Membership IDs</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <label style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, background: 'transparent', color: 'rgba(245,240,232,0.45)', display: 'inline-block' }}>
+                ↑ Import CSV
+                <input type="file" accept=".csv,.txt" onChange={handleImportCSV} style={{ display: 'none' }} />
+              </label>
+              <button onClick={() => { setAddModal(true); setAddError(''); setAddSuccess(''); setNewCodes('') }}
+                style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, background: 'transparent', color: 'rgba(245,240,232,0.45)' }}>
+                + Add IDs
+              </button>
+              <button onClick={handleExport}
+                style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, cursor: 'pointer', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, background: 'transparent', color: 'rgba(245,240,232,0.45)' }}>
+                ↓ Export
+              </button>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+            {[
+              { label: 'Total IDs', value: membershipIds.length },
+              { label: 'Claimed', value: membershipIds.filter(i => i.claimed).length },
+              { label: 'Unclaimed', value: membershipIds.filter(i => !i.claimed).length },
+            ].map(s => (
+              <div key={s.label} style={{ padding: '14px 16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', marginBottom: 6, fontWeight: 500 }}>{s.label}</p>
+                <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, color: '#F5F0E8' }}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Filter */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {(['all', 'claimed', 'unclaimed'] as const).map(f => (
+              <button key={f} onClick={() => setIdFilter(f)}
+                style={{ padding: '6px 14px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.08em', textTransform: 'capitalize', fontWeight: 500, cursor: 'pointer', border: idFilter === f ? '1px solid #C5855A' : '1px solid rgba(197,133,90,0.15)', borderRadius: 2, background: idFilter === f ? 'rgba(197,133,90,0.1)' : 'transparent', color: idFilter === f ? '#C5855A' : 'rgba(245,240,232,0.4)', outline: 'none' }}>
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {loadingIds ? (
+            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+          ) : filteredIds.length === 0 ? (
+            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No IDs found.</p>
+          ) : (
+            <Table headers={['Code', 'Status', 'Claimed by', 'Email', 'Claimed at']}>
+              {filteredIds.map((id: any) => (
+                <TR key={id.id}>
+                  <TD mono>{id.code}</TD>
+                  <TD>
+                    <span style={{ padding: '3px 8px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: id.claimed ? 'rgba(197,133,90,0.08)' : 'rgba(255,255,255,0.04)', color: id.claimed ? '#C5855A' : 'rgba(245,240,232,0.3)', border: `1px solid ${id.claimed ? 'rgba(197,133,90,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+                      {id.claimed ? 'Claimed' : 'Unclaimed'}
+                    </span>
+                  </TD>
+                  <TD>{id.claimedBy?.name || <span style={{ color: 'rgba(245,240,232,0.2)' }}>—</span>}</TD>
+                  <TD>{id.claimedBy?.email || <span style={{ color: 'rgba(245,240,232,0.2)' }}>—</span>}</TD>
+                  <TD mono>{id.claimedAt ? new Date(id.claimedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : <span style={{ color: 'rgba(245,240,232,0.2)' }}>—</span>}</TD>
+                </TR>
+              ))}
+            </Table>
+          )}
+        </div>
+      )}
+
+      {/* Create club modal */}
+      {createModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+          <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 440, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+            <button onClick={() => setCreateModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>New club</p>
+            <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 24 }}>Create a club partnership.</h3>
+            <InputField label="Club name" value={clubName} onChange={(e: any) => { setClubName(e.target.value); setCreateError('') }} placeholder="e.g. Ikoyi Club" />
+            <InputField label="Description (optional)" value={clubDesc} onChange={(e: any) => setClubDesc(e.target.value)} placeholder="Brief description of the club partnership" />
+            <div style={{ padding: '12px 16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(197,133,90,0.04)', marginBottom: 20 }}>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65 }}>
+                Members will claim their membership at:<br />
+                <strong style={{ color: '#C5855A', fontFamily: 'DM Mono, monospace', fontSize: 11 }}>
+                  bookings.soundhous.com/club/{clubName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'club-slug'}
+                </strong>
+              </p>
+            </div>
+            {createError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12 }}>{createError}</p>}
+            {createSuccess && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', marginBottom: 12 }}>✓ {createSuccess}</p>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <GhostBtn full onClick={() => setCreateModal(false)}>Cancel</GhostBtn>
+              <PrimaryBtn full onClick={handleCreateClub} disabled={creating}>{creating ? 'Creating...' : 'Create club'}</PrimaryBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add IDs modal */}
+      {addModal && selectedClub && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+          <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 480, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+            <button onClick={() => setAddModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Add membership IDs</p>
+            <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 8 }}>{selectedClub.name}</h3>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)', lineHeight: 1.65, marginBottom: 20 }}>
+              Enter one membership code per line. These will be sent to club members to claim at their onboarding page.
+            </p>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>Membership codes (one per line)</label>
+              <textarea
+                value={newCodes}
+                onChange={e => { setNewCodes(e.target.value); setAddError('') }}
+                placeholder={'IK-0001\nIK-0002\nIK-0003'}
+                rows={8}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: '12px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', outline: 'none', boxSizing: 'border-box', resize: 'vertical', letterSpacing: '0.06em' }}
+                onFocus={e => (e.target.style.borderColor = '#C5855A')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.2)')}
+              />
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)', marginTop: 6 }}>
+                {newCodes.split('\n').filter(l => l.trim()).length} code(s) entered
+              </p>
+            </div>
+            {addError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12 }}>{addError}</p>}
+            {addSuccess && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', marginBottom: 12 }}>✓ {addSuccess}</p>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <GhostBtn full onClick={() => setAddModal(false)}>Cancel</GhostBtn>
+              <PrimaryBtn full onClick={handleAddIds} disabled={adding}>{adding ? 'Adding...' : `Add ${newCodes.split('\n').filter(l => l.trim()).length} code(s)`}</PrimaryBtn>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
 }
-
 // ─── Main admin page ──────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('overview')
