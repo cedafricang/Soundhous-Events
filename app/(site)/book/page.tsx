@@ -71,7 +71,7 @@ const REFRESHMENTS: RefreshmentPackage[] = [
   description: 'Every booking includes complimentary large popcorn, wine, and small chops — prepared and ready when you arrive.', 
   price: 0 
 },
-  { id: 'none', name: 'No refreshments', description: 'Room access only.', price: 0 },
+ 
   { id: 'snacks', name: 'Curated Snacks', description: 'A considered selection of snacks prepared and set up before you arrive.', price: 35000 },
   { id: 'cocktails', name: 'Cocktails & Platters', description: 'Signature cocktails and curated platters. Everything in place when you walk in.', price: 75000 },
 ]
