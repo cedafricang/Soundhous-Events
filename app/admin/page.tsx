@@ -226,7 +226,7 @@ function ClubsTab({ token }: { token: string | null }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
   const authHeaders = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
 
-  useEffect(() => { fetchClubs() }, [])
+ useEffect(() => { if (token) fetchClubs() }, [token])
 
   const fetchClubs = async () => {
     setLoadingClubs(true)
@@ -988,7 +988,7 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
             )}
 
             {/* ── CLUBS ── */}
-            {tab === 'clubs' && <ClubsTab token={token} />}
+          {tab === 'clubs' && token && <ClubsTab token={token} />}
 
             {/* ── REPORTS ── */}
             {tab === 'reports' && (
