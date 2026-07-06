@@ -65,6 +65,12 @@ const ROOMS: Room[] = [
 ]
 
 const REFRESHMENTS: RefreshmentPackage[] = [
+  { 
+  id: 'none', 
+  name: 'No additional refreshments', 
+  description: 'Every booking includes complimentary large popcorn, wine, and small chops — prepared and ready when you arrive.', 
+  price: 0 
+},
   { id: 'none', name: 'No refreshments', description: 'Room access only.', price: 0 },
   { id: 'snacks', name: 'Curated Snacks', description: 'A considered selection of snacks prepared and set up before you arrive.', price: 35000 },
   { id: 'cocktails', name: 'Cocktails & Platters', description: 'Signature cocktails and curated platters. Everything in place when you walk in.', price: 75000 },
@@ -522,6 +528,11 @@ export default function BookPage() {
   const [showStickyBar, setShowStickyBar] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
+const minBookingDate = (() => {
+  const d = new Date()
+  d.setDate(d.getDate() + 2)
+  return d.toISOString().split('T')[0]
+})()
   const total = (selectedRoom?.price || 0) + selectedRefresh.price
   const pointsRequired: Record<string, number> = { 'private-cinema': 6000, 'hi-fi-room': 5000, 'media-room': 5000 }
   const hasEnoughPoints = selectedRoom ? (pointsBalance ?? 0) >= pointsRequired[selectedRoom.id] : false
@@ -858,10 +869,7 @@ export default function BookPage() {
 }}>
   <div style={{ width: '100%' }}>
     <label style={labelStyle}>Date</label>
-    <input
-      type="date"
-      min={today}
-      value={selectedDate}
+    <input type="date" min={minBookingDate} value={selectedDate}
       onChange={e => { setSelectedDate(e.target.value); setSelectedSlot('') }}
       style={{
         ...inputStyle,
@@ -903,7 +911,13 @@ export default function BookPage() {
                     <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.3)', fontFamily: 'DM Sans' }}>Checking availability...</p>
                   </div>
                 ) : availableSlots.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans' }}>No slots available for this date.</p>
+  <div style={{ padding: '14px 18px', border: '1px solid rgba(197,133,90,0.12)', borderRadius: '2px', background: 'rgba(255,255,255,0.02)' }}>
+    <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.45)', fontFamily: 'DM Sans', lineHeight: 1.65 }}>
+      {selectedDate && new Date(selectedDate + 'T12:00:00').getDay() === 1
+        ? 'Soundhous Reserve is closed on Mondays. Please select another day.'
+        : 'No sessions available for this date. Please select another day.'}
+    </p>
+  </div>
                 ) : (
                   <>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -1050,10 +1064,10 @@ export default function BookPage() {
         {step === 4 && (
           <div>
             <SectionHead
-              eyebrow="Step 4 of 5"
-              title="Refreshments."
-              subtitle="Per session, not per person. Everything is prepared before you arrive."
-            />
+  eyebrow="Step 4 of 5"
+  title="Refreshments."
+  subtitle="Every booking includes complimentary large popcorn, wine, and small chops. Add more below if you'd like."
+/>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', maxWidth: '720px', marginBottom: '28px' }}>
               {REFRESHMENTS.map(r => {
@@ -1077,7 +1091,7 @@ export default function BookPage() {
                     <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '16px', fontWeight: 400, fontStyle: 'italic', color: active ? '#F5F0E8' : 'rgba(245,240,232,0.65)', marginBottom: '7px' }}>{r.name}</h3>
                     <p style={{ fontSize: '12px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.6, marginBottom: '14px', fontFamily: 'DM Sans' }}>{r.description}</p>
                     <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '17px', color: active ? '#C5855A' : 'rgba(245,240,232,0.5)', fontWeight: 400 }}>
-                      {r.price === 0 ? 'Included' : formatCurrency(r.price)}
+                     {r.price === 0 ? 'Complimentary ✓' : formatCurrency(r.price)}
                     </p>
                   </div>
                 )
