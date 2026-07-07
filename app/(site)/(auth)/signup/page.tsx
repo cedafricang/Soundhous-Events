@@ -88,6 +88,13 @@ useEffect(() => {
     localStorage.setItem('accessToken', data.data.accessToken)
     localStorage.setItem('refreshToken', data.data.refreshToken)
     localStorage.setItem('customer', JSON.stringify(data.data.customer))
+    
+    // Offline/Shopify accounts are activated immediately — go straight to dashboard
+    if (data.message?.includes('activated')) {
+      window.location.href = '/dashboard'
+      return
+    }
+    
     setSignupComplete(true)
     sessionStorage.removeItem('referralCode')
   } catch {
