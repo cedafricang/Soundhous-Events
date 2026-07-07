@@ -66,6 +66,7 @@ export default function CheckInPage() {
 
   const stopCamera = () => {
     if (rafRef.current) {
+      clearInterval(rafRef.current as any)
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
@@ -78,7 +79,6 @@ export default function CheckInPage() {
     }
     setScanning(false)
   }
-
   const startCamera = async () => {
     setResult(null)
     setCameraError('')
@@ -130,14 +130,15 @@ export default function CheckInPage() {
   const startScanning = () => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
-    const scan = () => {
+    const intervalId = setInterval(() => {
       const video = videoRef.current
-      if (!video || !streamRef.current || video.readyState < 2) {
-        rafRef.current = requestAnimationFrame(scan)
+      if (!video || !streamRef.current) {
+        clearInterval(intervalId)
         return
       }
+      if (video.readyState < 2 || video.videoWidth === 0) return
 
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
@@ -145,22 +146,23 @@ export default function CheckInPage() {
 
       const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
       if (imageData && (window as any).jsQR) {
-        const code = (window as any).jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'attemptBoth',
-        })
+        const code = (window as any).jsQR(
+          imageData.data,
+          imageData.width,
+          imageData.height,
+          { inversionAttempts: 'attemptBoth' }
+        )
         if (code?.data) {
+          clearInterval(intervalId)
           stopCamera()
           checkIn(code.data)
-          return
         }
       }
+    }, 300) // scan every 300ms
 
-      rafRef.current = requestAnimationFrame(scan)
-    }
-
-    rafRef.current = requestAnimationFrame(scan)
+    // Store interval ID for cleanup
+    rafRef.current = intervalId as any
   }
-
   const checkIn = async (ticketNumber: string) => {
     setLoading(true)
     setResult(null)
