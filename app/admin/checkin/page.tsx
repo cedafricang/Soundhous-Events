@@ -146,7 +146,7 @@ export default function CheckInPage() {
       const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
       if (imageData && (window as any).jsQR) {
         const code = (window as any).jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'dontInvert',
+          inversionAttempts: 'attemptBoth',
         })
         if (code?.data) {
           stopCamera()
