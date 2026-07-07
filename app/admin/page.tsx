@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-type AdminTab = 'overview' | 'bookings' | 'customers' | 'guests' | 'points' | 'clubs' | 'reports' | 'settings'
+type AdminTab = 'overview' | 'bookings' | 'customers' | 'guests' | 'points' | 'clubs' | 'tickets' | 'reports' | 'settings'
 type PaymentType = 'cash' | 'points' | 'complimentary-tier' | 'club-member' | 'admin-grant'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
@@ -17,6 +17,7 @@ const NAV_ITEMS: { id: AdminTab; label: string; iconPath: string }[] = [
   { id: 'bookings', label: 'Bookings', iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
   { id: 'customers', label: 'Customers', iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
   { id: 'guests', label: 'Guests & RSVPs', iconPath: 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z' },
+  { id: 'tickets', label: 'Tickets & Check-in', iconPath: 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z' },
   { id: 'points', label: 'Points & Tiers', iconPath: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   { id: 'clubs', label: 'Club Members', iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
   { id: 'reports', label: 'Reports', iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
@@ -515,6 +516,9 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+  const [tickets, setTickets] = useState<any[]>([])
+const [loadingTickets, setLoadingTickets] = useState(false)
+const [ticketFilter, setTicketFilter] = useState('all')
 
   const [overview, setOverview] = useState<any>(null)
   const [bookings, setBookings] = useState<any[]>([])
@@ -577,6 +581,7 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
   useEffect(() => {
     if (!token) return
     if (tab === 'bookings' && bookings.length === 0) fetchBookings()
+      if (tab === 'tickets' && tickets.length === 0) fetchTickets()
     if (tab === 'customers' && customers.length === 0) fetchCustomers()
     if (tab === 'guests' && guests.length === 0) fetchGuests()
     if (tab === 'reports' && !reports) fetchReports()
@@ -595,6 +600,16 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
     if (data.success) setSelectedBookingDetail(data.data.booking)
   } catch (err) { console.error(err) }
   finally { setLoadingBookingDetail(false) }
+}
+
+const fetchTickets = async (filter = 'all') => {
+  setLoadingTickets(true)
+  try {
+    const res = await fetch(`${API_URL}/api/admin/tickets?filter=${filter}`, { headers: authHeaders() })
+    const data = await res.json()
+    if (data.success) setTickets(data.data.tickets)
+  } catch (err) { console.error(err) }
+  finally { setLoadingTickets(false) }
 }
 
   const fetchOverview = async () => {
@@ -989,6 +1004,64 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
 
             {/* ── CLUBS ── */}
           {tab === 'clubs' && token && <ClubsTab token={token} />}
+
+          {tab === 'tickets' && (
+  <div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {['all', 'unused', 'used'].map(f => (
+          <FilterPill key={f} label={f === 'all' ? 'All' : f === 'unused' ? 'Not checked in' : 'Checked in'} active={ticketFilter === f}
+            onClick={() => { setTicketFilter(f); setTickets([]); fetchTickets(f) }} />
+        ))}
+      </div>
+      <a href="/admin/checkin" style={{ padding: '9px 18px', fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, background: '#C5855A', color: '#0E0C0A', textDecoration: 'none', borderRadius: 2 }}>
+        📷 Open scanner
+      </a>
+    </div>
+
+    {/* Stats */}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+      {[
+        { label: 'Total tickets', value: tickets.length },
+        { label: 'Checked in', value: tickets.filter(t => t.checkedIn).length },
+        { label: 'Not checked in', value: tickets.filter(t => !t.checkedIn).length },
+      ].map(s => (
+        <div key={s.label} style={{ padding: '16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', marginBottom: 6, fontWeight: 500 }}>{s.label}</p>
+          <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 24, color: '#F5F0E8' }}>{s.value}</p>
+        </div>
+      ))}
+    </div>
+
+    {loadingTickets ? (
+      <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+    ) : tickets.length === 0 ? (
+      <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No tickets found.</p>
+    ) : (
+      <Table headers={['Ticket', 'Type', 'Holder', 'Room', 'Date', 'Time', 'Status']}>
+        {tickets.map(t => (
+          <TR key={t.ticketNumber}>
+            <TD mono>{t.ticketNumber}</TD>
+            <TD>
+              <span style={{ padding: '2px 8px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: t.ticketType === 'host' ? 'rgba(197,133,90,0.08)' : 'rgba(255,255,255,0.04)', color: t.ticketType === 'host' ? '#C5855A' : 'rgba(245,240,232,0.4)', border: `1px solid ${t.ticketType === 'host' ? 'rgba(197,133,90,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+                {t.ticketType}
+              </span>
+            </TD>
+            <TD>{t.holderName || <span style={{ color: 'rgba(245,240,232,0.2)' }}>—</span>}</TD>
+            <TD>{getRoomName(t.room)}</TD>
+            <TD mono>{safeDate(t.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</TD>
+            <TD mono>{t.timeSlot}</TD>
+            <TD>
+              <span style={{ padding: '3px 9px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: t.checkedIn ? 'rgba(197,133,90,0.08)' : 'rgba(255,255,255,0.04)', color: t.checkedIn ? '#C5855A' : 'rgba(245,240,232,0.3)', border: `1px solid ${t.checkedIn ? 'rgba(197,133,90,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+                {t.checkedIn ? `✓ Checked in` : 'Not checked in'}
+              </span>
+            </TD>
+          </TR>
+        ))}
+      </Table>
+    )}
+  </div>
+)}
 
             {/* ── REPORTS ── */}
             {tab === 'reports' && (
