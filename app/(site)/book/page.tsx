@@ -524,7 +524,9 @@ export default function BookPage() {
   const [paymentError, setPaymentError] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<any>(null)
   const [pointsBalance, setPointsBalance] = useState<number | null>(null)
-  const [complimentaryRemaining, setComplimentaryRemaining] = useState<number | null>(null)
+const [complimentaryRemaining, setComplimentaryRemaining] = useState<number | null>(null)
+  const [hasClubMembership, setHasClubMembership] = useState(false)
+  const [clubFirstVisitUsed, setClubFirstVisitUsed] = useState(false)
   const [showStickyBar, setShowStickyBar] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
@@ -595,6 +597,8 @@ const minBookingDate = (() => {
         if (data.success) {
           setPointsBalance(data.data.customer.pointsBalance)
           setComplimentaryRemaining(data.data.customer.complimentarySessionsRemaining)
+          setHasClubMembership(!!data.data.customer.clubId)
+          setClubFirstVisitUsed(data.data.customer.clubFirstVisitUsed || false)
         }
       })
       .catch(() => {})
@@ -1176,6 +1180,16 @@ const minBookingDate = (() => {
                 <p style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#C5855A', fontFamily: 'DM Sans', fontWeight: 600 }}>
                   {bookingMode === 'cash' ? 'Payment' : bookingMode === 'points' ? 'Redeem points' : 'Complimentary'}
                 </p>
+                {hasClubMembership && (
+                  <div style={{ padding: '12px 16px', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, background: 'rgba(197,133,90,0.06)', marginBottom: 16 }}>
+                    <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', fontWeight: 500, marginBottom: 4 }}>
+                      {!clubFirstVisitUsed ? '🎁 Club benefit: First visit complimentary' : '✦ Club benefit: 20% discount applied'}
+                    </p>
+                    <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>
+                      {!clubFirstVisitUsed ? 'Your first session is on us.' : 'Your club membership discount has been applied to this booking.'}
+                    </p>
+                  </div>
+                )}
                 <p style={{ fontSize: '13px', color: 'rgba(245,240,232,0.4)', lineHeight: 1.7, fontFamily: 'DM Sans', flex: 1 }}>
                   {bookingMode === 'cash' && 'Processed securely via Paystack. You will be redirected and returned once payment is confirmed.'}
                   {bookingMode === 'points' && `Deducts ${selectedRoom ? pointsRequired[selectedRoom.id].toLocaleString() : ''} points from your balance. No card payment needed.`}
