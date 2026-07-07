@@ -667,7 +667,16 @@ const minBookingDate = (() => {
         }),
       })
       const data = await res.json()
-      if (!data.success) { setPaymentError(data.message || 'Something went wrong.'); return }
+     if (!data.success) { setPaymentError(data.message || 'Something went wrong.'); return }
+      
+      // Club first visit — confirmed instantly, no Paystack needed
+      if (data.data.complimentary) {
+        await sendGuestInvites(data.data.booking.id)
+        setConfirmedBooking(data.data.booking)
+        setStep('confirm')
+        return
+      }
+
       sessionStorage.setItem('pendingGuests', JSON.stringify(guests.filter(g => g.fullName.trim() && isValidEmail(g.email))))
       window.location.href = data.data.authorizationUrl
     } catch { setPaymentError('Something went wrong. Please try again.') }
