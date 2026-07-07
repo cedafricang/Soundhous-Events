@@ -42,7 +42,13 @@ export default function AdminLoginPage() {
     localStorage.setItem('refreshToken', data.data.refreshToken)
     localStorage.setItem('customer', JSON.stringify(data.data.customer))
     localStorage.setItem('isAdmin', 'true')
-    window.location.href = '/admin'
+    const redirect = sessionStorage.getItem('checkinRedirect')
+if (redirect) {
+  sessionStorage.removeItem('checkinRedirect')
+  window.location.href = redirect
+} else {
+  window.location.href = '/admin'
+}
   } catch {
     setError('Something went wrong. Please try again.')
   } finally {
