@@ -29,15 +29,10 @@ type CheckInResult = {
 
 export default function CheckInPage() {
   const [token, setToken] = useState<string | null>(null)
-  const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<CheckInResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [manualCode, setManualCode] = useState('')
-  const [cameraError, setCameraError] = useState('')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const rafRef = useRef<number | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -53,116 +48,14 @@ export default function CheckInPage() {
     }
     setToken(t)
 
-    // Preload jsQR
+    // Load jsQR for image processing
     const script = document.createElement('script')
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js'
     document.head.appendChild(script)
 
-    return () => {
-      document.head.removeChild(link)
-      stopCamera()
-    }
+    return () => { document.head.removeChild(link) }
   }, [])
 
-  const stopCamera = () => {
-    if (rafRef.current) {
-      clearInterval(rafRef.current as any)
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-      streamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-    setScanning(false)
-  }
-  const startCamera = async () => {
-    setResult(null)
-    setCameraError('')
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      })
-
-      streamRef.current = stream
-      setScanning(true)
-
-      // Wait for next tick so video element is rendered
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.setAttribute('playsinline', 'true')
-          videoRef.current.setAttribute('muted', 'true')
-          videoRef.current.muted = true
-
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().then(() => {
-              startScanning()
-            }).catch(err => {
-              console.error('Play error:', err)
-              setCameraError('Could not start camera. Please try again.')
-              stopCamera()
-            })
-          }
-        }
-      }, 100)
-    } catch (err: any) {
-      console.error('Camera error:', err)
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Camera access denied. Please allow camera access in your browser settings.')
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No camera found on this device.')
-      } else {
-        setCameraError('Could not access camera. Please try manual entry instead.')
-      }
-    }
-  }
-
-  const startScanning = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-
-    const intervalId = setInterval(() => {
-      const video = videoRef.current
-      if (!video || !streamRef.current) {
-        clearInterval(intervalId)
-        return
-      }
-      if (video.readyState < 2 || video.videoWidth === 0) return
-
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
-      if (imageData && (window as any).jsQR) {
-        const code = (window as any).jsQR(
-          imageData.data,
-          imageData.width,
-          imageData.height,
-          { inversionAttempts: 'attemptBoth' }
-        )
-        if (code?.data) {
-          clearInterval(intervalId)
-          stopCamera()
-          checkIn(code.data)
-        }
-      }
-    }, 300) // scan every 300ms
-
-    // Store interval ID for cleanup
-    rafRef.current = intervalId as any
-  }
   const checkIn = async (ticketNumber: string) => {
     setLoading(true)
     setResult(null)
@@ -184,6 +77,41 @@ export default function CheckInPage() {
     }
   }
 
+  const handleFileCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx?.drawImage(img, 0, 0)
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+
+      if (imageData && (window as any).jsQR) {
+        const code = (window as any).jsQR(
+          imageData.data,
+          imageData.width,
+          imageData.height,
+          { inversionAttempts: 'attemptBoth' }
+        )
+        if (code?.data) {
+          checkIn(code.data)
+        } else {
+          setResult({ success: false, message: 'Could not read QR code. Try holding the camera steadier or enter the ticket number manually.' })
+        }
+      }
+    }
+    img.src = url
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
   const handleManualSubmit = () => {
     if (!manualCode.trim()) return
     checkIn(manualCode.trim())
@@ -193,12 +121,11 @@ export default function CheckInPage() {
   const reset = () => {
     setResult(null)
     setManualCode('')
-    setCameraError('')
   }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0A0806', color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', display: 'flex', flexDirection: 'column' }}>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
       {/* Header */}
       <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(197,133,90,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -210,7 +137,7 @@ export default function CheckInPage() {
         </p>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 20px' }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
 
           {/* Result */}
@@ -222,6 +149,7 @@ export default function CheckInPage() {
               background: result.success ? 'rgba(197,133,90,0.1)' : result.data?.alreadyUsed ? 'rgba(220,140,60,0.08)' : 'rgba(220,80,80,0.08)',
               marginBottom: 24,
               textAlign: 'center',
+              animation: 'fadeUp 0.4s ease forwards',
             }}>
               <div style={{ fontSize: 56, marginBottom: 16, lineHeight: 1 }}>
                 {result.success ? '✅' : result.data?.alreadyUsed ? '⚠️' : '❌'}
@@ -233,7 +161,7 @@ export default function CheckInPage() {
 
               {result.success && result.data && (
                 <>
-                  <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 26, color: '#F5F0E8', marginBottom: 8, lineHeight: 1.2 }}>
+                  <p style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 28, color: '#F5F0E8', marginBottom: 8, lineHeight: 1.2 }}>
                     {result.data.name}
                   </p>
                   <p style={{ fontFamily: 'DM Sans', fontSize: 14, color: 'rgba(245,240,232,0.6)', marginBottom: 4 }}>
@@ -260,68 +188,64 @@ export default function CheckInPage() {
               )}
 
               <button onClick={reset} style={{ marginTop: 20, padding: '11px 28px', background: 'transparent', border: '1px solid rgba(197,133,90,0.3)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, color: 'rgba(245,240,232,0.5)', cursor: 'pointer' }}>
-                Scan next →
+                Check in next →
               </button>
             </div>
           )}
 
-          {/* Camera view */}
-          {scanning && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ position: 'relative', borderRadius: 4, overflow: 'hidden', border: '2px solid rgba(197,133,90,0.4)', background: '#111' }}>
-                <video
-                  ref={videoRef}
-                  style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'cover' }}
-                  playsInline
-                  muted
-                  autoPlay
-                />
-                {/* Scanner overlay */}
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                  <div style={{ width: 180, height: 180, border: '2px solid #C5855A', borderRadius: 4, boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)' }}>
-                    {/* Corner markers */}
-                    {[
-                      { top: -2, left: -2, borderWidth: '3px 0 0 3px' },
-                      { top: -2, right: -2, borderWidth: '3px 3px 0 0' },
-                      { bottom: -2, left: -2, borderWidth: '0 0 3px 3px' },
-                      { bottom: -2, right: -2, borderWidth: '0 3px 3px 0' },
-                    ].map((corner, i) => (
-                      <div key={i} style={{ position: 'absolute', width: 20, height: 20, borderStyle: 'solid', borderColor: '#C5855A', ...corner }} />
-                    ))}
-                  </div>
-                </div>
-                {/* Scanning indicator */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px', background: 'rgba(0,0,0,0.6)', textAlign: 'center' }}>
-                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: '#C5855A', letterSpacing: '0.1em', textTransform: 'uppercase', animation: 'pulse 1.5s ease-in-out infinite', margin: 0 }}>
-                    Scanning...
-                  </p>
-                </div>
-              </div>
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-              <button onClick={stopCamera} style={{ display: 'block', margin: '12px auto 0', padding: '10px 24px', background: 'transparent', border: '1px solid rgba(220,80,80,0.3)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(220,80,80,0.7)', cursor: 'pointer' }}>
-                Cancel
-              </button>
-            </div>
-          )}
-
-          {/* Camera error */}
-          {cameraError && (
-            <div style={{ padding: '14px 16px', border: '1px solid rgba(220,80,80,0.25)', borderRadius: 2, background: 'rgba(220,80,80,0.05)', marginBottom: 16 }}>
-              <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(220,80,80,0.85)', lineHeight: 1.5 }}>{cameraError}</p>
+          {/* Loading */}
+          {loading && (
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ width: 40, height: 40, border: '2px solid rgba(197,133,90,0.2)', borderTopColor: '#C5855A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.4)' }}>Checking ticket...</p>
             </div>
           )}
 
           {/* Scan button */}
-          {!scanning && !result && (
+          {!loading && (
             <>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileCapture}
+                style={{ display: 'none' }}
+              />
+
               <button
-                onClick={startCamera}
-                disabled={loading}
-                style={{ width: '100%', padding: '18px', background: loading ? 'rgba(197,133,90,0.4)' : '#C5855A', border: 'none', borderRadius: 2, fontSize: 13, fontFamily: 'DM Sans', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, color: '#0E0C0A', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: '100%',
+                  padding: '20px',
+                  background: '#C5855A',
+                  border: 'none',
+                  borderRadius: 2,
+                  fontSize: 13,
+                  fontFamily: 'DM Sans',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  color: '#0E0C0A',
+                  cursor: 'pointer',
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#D4946A')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#C5855A')}
               >
-                <span style={{ fontSize: 20 }}>📷</span>
-                {loading ? 'Checking...' : 'Scan QR code'}
+                <span style={{ fontSize: 22 }}>📷</span>
+                Scan ticket QR code
               </button>
+
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)', textAlign: 'center', marginBottom: 24, lineHeight: 1.6 }}>
+                Point your camera at the QR code on the ticket email. Make sure the QR code is in frame and well-lit.
+              </p>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <div style={{ flex: 1, height: 1, background: 'rgba(197,133,90,0.1)' }} />
@@ -336,14 +260,39 @@ export default function CheckInPage() {
                   onChange={e => setManualCode(e.target.value.toUpperCase())}
                   onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
                   placeholder="SHCINEMA-12345"
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: '13px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Mono, monospace', letterSpacing: '0.08em', outline: 'none', boxSizing: 'border-box' as const }}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(197,133,90,0.2)',
+                    borderRadius: 2,
+                    padding: '13px 14px',
+                    fontSize: 13,
+                    color: '#F5F0E8',
+                    fontFamily: 'DM Mono, monospace',
+                    letterSpacing: '0.08em',
+                    outline: 'none',
+                    boxSizing: 'border-box' as const,
+                  }}
                   onFocus={e => (e.target.style.borderColor = '#C5855A')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.2)')}
                 />
                 <button
                   onClick={handleManualSubmit}
-                  disabled={!manualCode.trim() || loading}
-                  style={{ padding: '13px 18px', background: !manualCode.trim() || loading ? 'rgba(197,133,90,0.3)' : '#C5855A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, color: '#0E0C0A', cursor: !manualCode.trim() || loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' as const }}
+                  disabled={!manualCode.trim()}
+                  style={{
+                    padding: '13px 18px',
+                    background: !manualCode.trim() ? 'rgba(197,133,90,0.3)' : '#C5855A',
+                    border: 'none',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'DM Sans',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    fontWeight: 700,
+                    color: '#0E0C0A',
+                    cursor: !manualCode.trim() ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap' as const,
+                  }}
                 >
                   Check in
                 </button>
@@ -351,7 +300,7 @@ export default function CheckInPage() {
             </>
           )}
 
-          <div style={{ marginTop: 32, textAlign: 'center' }}>
+          <div style={{ marginTop: 40, textAlign: 'center' }}>
             <a href="/admin" style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.2)', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               ← Back to admin
             </a>
