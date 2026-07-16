@@ -1037,7 +1037,7 @@ const goNext = () => {
         {/* ═══ STEP 3: Host + guest details ═══ */}
 
         {/* ═══ STEP 3: Guests ═════════════════════════════════════════════ */}
-        {step === 3 && (
+       {step === 4 && (
           <div>
             <SectionHead
               eyebrow="Step 4 of 6"
@@ -1136,7 +1136,7 @@ const goNext = () => {
         )}
 
         {/* ═══ STEP 4: Refreshments ═══════════════════════════════════════ */}
-        {step === 4 && (
+        {step === 5 &&(
           <div>
             <SectionHead
   eyebrow="Step 5 of 6"
@@ -1190,7 +1190,7 @@ const goNext = () => {
         )}
 
         {/* ═══ STEP 5: Review & pay ═══════════════════════════════════════ */}
-        {step === 5 && (
+        {step === 6 && (
           <div>
             <SectionHead eyebrow="Step 6 of 6" title="Review and pay." />
 
