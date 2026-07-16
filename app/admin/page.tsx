@@ -868,6 +868,7 @@ const fetchTickets = async (filter = 'all') => {
                         <TD>{getRoomName(b.room)}</TD>
                         <TD mono>{new Date(b.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
                         <TD mono>{b.timeSlot}</TD>
+                        <TD>{b.sessionPurpose || '—'}</TD>
                         <TD>{b.guestCount}</TD>
                         <TD><PayPill type={b.paymentType} /></TD>
                         <TD mono>{b.amountPaid > 0 ? formatCurrency(b.amountPaid) : b.pointsUsed > 0 ? `${b.pointsUsed.toLocaleString()} pts` : '—'}</TD>
