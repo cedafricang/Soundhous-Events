@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-type BookingStep = 1 | 2 | 3 | 4 | 5 | 'confirm'
+type BookingStep = 1 | 2 | 3 | 4 | 5 | 6 | 'confirm'
 type BookingMode = 'cash' | 'points' | 'complimentary'
 
 interface Room {
@@ -63,6 +63,16 @@ const ROOMS: Room[] = [
     accentColor: '#A07850',
   },
 ]
+const SESSION_PURPOSES = [
+  { id: 'movie-screening', label: 'Movie screening', icon: '🎬', desc: 'Film, series, or video content' },
+  { id: 'music-listening', label: 'Music listening', icon: '🎵', desc: 'Album playback or audiophile session' },
+  { id: 'gaming', label: 'Gaming session', icon: '🎮', desc: 'Console or PC gaming' },
+  { id: 'birthday', label: 'Birthday / celebration', icon: '🎂', desc: 'Special occasion or party' },
+  { id: 'corporate', label: 'Corporate screening', icon: '👔', desc: 'Presentation or team event' },
+  { id: 'podcast', label: 'Podcast / recording', icon: '🎧', desc: 'Audio or video recording' },
+  { id: 'private-event', label: 'Private event', icon: '🎉', desc: 'Custom occasion' },
+  { id: 'other', label: 'Other', icon: '🗂️', desc: 'Something else entirely' },
+]
 
 const REFRESHMENTS: RefreshmentPackage[] = [
   { 
@@ -76,7 +86,7 @@ const REFRESHMENTS: RefreshmentPackage[] = [
   { id: 'cocktails', name: 'Cocktails & Platters', description: 'Signature cocktails and curated platters. Everything in place when you walk in.', price: 75000 },
 ]
 
-const STEPS = ['Room', 'Date & time', 'Guests', 'Refreshments', 'Pay']
+const STEPS = ['Room', 'Date & time', 'Purpose', 'Guests', 'Refreshments', 'Pay']
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reserveapi-production-6743.up.railway.app'
 
 function formatCurrency(n: number) {
@@ -510,6 +520,7 @@ export default function BookPage() {
   const [step, setStep] = useState<BookingStep>(1)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [selectedDate, setSelectedDate] = useState('')
+  
   const [selectedSlot, setSelectedSlot] = useState('')
   const [selectedRefresh, setSelectedRefresh] = useState<RefreshmentPackage>(REFRESHMENTS[0])
   const [bookingMode, setBookingMode] = useState<BookingMode>('cash')
@@ -527,6 +538,7 @@ export default function BookPage() {
 const [complimentaryRemaining, setComplimentaryRemaining] = useState<number | null>(null)
   const [hasClubMembership, setHasClubMembership] = useState(false)
   const [clubFirstVisitUsed, setClubFirstVisitUsed] = useState(false)
+ const [sessionPurpose, setSessionPurpose] = useState('')
   const [showStickyBar, setShowStickyBar] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
@@ -614,9 +626,9 @@ const minBookingDate = (() => {
     })
   }, [guestCount])
 
-  const goNext = () => {
+const goNext = () => {
     const n = (step as number) + 1
-    if (n <= 5) { setStep(n as BookingStep); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+    if (n <= 6) { setStep(n as BookingStep); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   }
   const goPrev = () => {
     const p = (step as number) - 1
@@ -664,6 +676,7 @@ const minBookingDate = (() => {
           room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
+          sessionPurpose,
         }),
       })
       const data = await res.json()
@@ -695,6 +708,7 @@ const minBookingDate = (() => {
           room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
+         sessionPurpose,
         }),
       })
       const data = await res.json()
@@ -717,6 +731,7 @@ const minBookingDate = (() => {
           room: selectedRoom?.id, date: selectedDate, timeSlot: selectedSlot,
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
+          sessionPurpose,
         }),
       })
       const data = await res.json()
@@ -805,7 +820,7 @@ const minBookingDate = (() => {
           <div>
             <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <SectionHead
-                eyebrow="Step 1 of 5"
+                eyebrow="Step 1 of 6"
                 title="Choose your room."
                 subtitle="Select the experience. Refreshments come later."
               />
@@ -867,7 +882,7 @@ const minBookingDate = (() => {
         {step === 2 && (
           <div>
             <SectionHead
-              eyebrow="Step 2 of 5"
+              eyebrow="Step 2 of 6"
               title="Date and time."
               subtitle={`${selectedRoom?.name} · ${selectedRoom?.sessionLength}`}
             />
@@ -974,11 +989,58 @@ const minBookingDate = (() => {
           </div>
         )}
 
+        {/* ═══ STEP 3: Session purpose ═══ */}
+        {step === 3 && (
+          <div>
+            <SectionHead
+              eyebrow="Step 3 of 6"
+              title="What's the occasion?"
+              subtitle="Help us prepare the room for your experience."
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', maxWidth: '720px', marginBottom: '40px' }}>
+              {SESSION_PURPOSES.map(p => {
+                const active = sessionPurpose === p.id
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSessionPurpose(p.id)}
+                    style={{
+                      padding: '20px 16px',
+                      cursor: 'pointer',
+                      borderRadius: '2px',
+                      border: active ? '1px solid rgba(197,133,90,0.7)' : '1px solid rgba(197,133,90,0.1)',
+                      background: active ? 'rgba(197,133,90,0.08)' : 'rgba(255,255,255,0.02)',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      textAlign: 'center' as const,
+                    }}
+                  >
+                    {active && (
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 16, height: 16, borderRadius: '50%', background: '#C5855A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#0E0C0A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </div>
+                    )}
+                    <p style={{ fontSize: '28px', marginBottom: '10px', lineHeight: 1 }}>{p.icon}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, color: active ? '#F5F0E8' : 'rgba(245,240,232,0.65)', marginBottom: '4px' }}>{p.label}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px', color: 'rgba(245,240,232,0.35)', lineHeight: 1.4 }}>{p.desc}</p>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
+              <PrimaryBtn onClick={goNext} disabled={!sessionPurpose}>Continue →</PrimaryBtn>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP 3: Host + guest details ═══ */}
+
         {/* ═══ STEP 3: Guests ═════════════════════════════════════════════ */}
         {step === 3 && (
           <div>
             <SectionHead
-              eyebrow="Step 3 of 5"
+              eyebrow="Step 4 of 6"
               title="Who's joining you?"
               subtitle="Enter your guests' details — they'll each receive an invitation email to RSVP and collect their ticket."
             />
@@ -1077,7 +1139,7 @@ const minBookingDate = (() => {
         {step === 4 && (
           <div>
             <SectionHead
-  eyebrow="Step 4 of 5"
+  eyebrow="Step 5 of 6"
   title="Refreshments."
   subtitle="Every booking includes complimentary large popcorn, wine, and small chops. Add more below if you'd like."
 />
@@ -1130,7 +1192,7 @@ const minBookingDate = (() => {
         {/* ═══ STEP 5: Review & pay ═══════════════════════════════════════ */}
         {step === 5 && (
           <div>
-            <SectionHead eyebrow="Step 5 of 5" title="Review and pay." />
+            <SectionHead eyebrow="Step 6 of 6" title="Review and pay." />
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '800px' }}>
               {/* Summary */}
@@ -1143,6 +1205,7 @@ const minBookingDate = (() => {
                   { label: 'Guests', value: guests.length === 0 ? 'Just you' : `${guests.length + 1} total (you + ${guests.length})` },
                   { label: 'Refreshments', value: selectedRefresh.name },
                   { label: 'Payment', value: bookingMode === 'cash' ? 'Card via Paystack' : bookingMode === 'points' ? 'Points' : 'Complimentary' },
+                  { label: 'Purpose', value: SESSION_PURPOSES.find(p => p.id === sessionPurpose)?.label || '—' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: '12px' }}>
                     <span style={{ fontSize: '11px', color: 'rgba(245,240,232,0.35)', fontFamily: 'DM Sans', flexShrink: 0 }}>{row.label}</span>
