@@ -597,7 +597,10 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
   try {
     const res = await fetch(`${API_URL}/api/admin/bookings/${bookingId}`, { headers: authHeaders() })
     const data = await res.json()
-    if (data.success) setSelectedBookingDetail(data.data.booking)
+   if (data.success) {
+      console.log('Booking detail:', JSON.stringify(data.data.booking))
+      setSelectedBookingDetail(data.data.booking)
+    }
   } catch (err) { console.error(err) }
   finally { setLoadingBookingDetail(false) }
 }
