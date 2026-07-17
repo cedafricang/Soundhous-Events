@@ -864,10 +864,11 @@ const fetchTickets = async (filter = 'all') => {
                 {loadingBookings ? <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p> : filteredBookings.length === 0 ? (
                   <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)', padding: '20px 0' }}>No bookings found.</p>
                 ) : (
-                  <Table headers={['Customer', 'Room', 'Date', 'Time', 'Purpose', 'Guests', 'Type', 'Amount', 'Status']}>
+                  <Table headers={['Customer', 'Phone', 'Room', 'Date', 'Time', 'Purpose', 'Guests', 'Type', 'Amount', 'Status']}>
                     {filteredBookings.map(b => (
   <TR key={b.id} onClick={() => fetchBookingDetail(b.id)} style={{ cursor: 'pointer' }}>
-                        <TD>{b.customerName || b.customerEmail}</TD>
+                     <TD>{b.customerName || b.customerEmail}</TD>
+                        <TD>{b.customerPhone || '—'}</TD>
                         <TD>{getRoomName(b.room)}</TD>
                         <TD mono>{new Date(b.bookingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</TD>
                         <TD mono>{b.timeSlot}</TD>
