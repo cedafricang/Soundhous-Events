@@ -528,6 +528,7 @@ export default function BookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [hostName, setHostName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
+  const [hostPhone, setHostPhone] = useState('')
   const [guestCount, setGuestCount] = useState(1)
   const [guests, setGuests] = useState<Guest[]>([])
   const [guestErrors, setGuestErrors] = useState<Record<number, string>>({})
@@ -571,6 +572,7 @@ const minBookingDate = (() => {
         const c = JSON.parse(customerStr)
         setHostName(`${c.firstName} ${c.lastName}`)
         setHostEmail(c.email)
+        setHostPhone(c.phone || '')
       } catch {}
     }
   }, [])
@@ -677,6 +679,7 @@ const goNext = () => {
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
           sessionPurpose,
+          hostPhone,
         }),
       })
       const data = await res.json()
@@ -709,6 +712,7 @@ const goNext = () => {
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
          sessionPurpose,
+         hostPhone,
         }),
       })
       const data = await res.json()
@@ -732,6 +736,7 @@ const goNext = () => {
           guestCount: guests.length + 1,
           refreshment: selectedRefresh.id === 'snacks' ? 'curated-snacks' : selectedRefresh.id === 'cocktails' ? 'cocktails-platters' : 'none',
           sessionPurpose,
+          hostPhone,
         }),
       })
       const data = await res.json()
@@ -1059,6 +1064,10 @@ const goNext = () => {
                   <label style={labelStyle}>Email</label>
                   <input type="email" value={hostEmail} onChange={e => setHostEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Phone number</label>
+                  <input type="tel" value={hostPhone} onChange={e => setHostPhone(e.target.value)} placeholder="+234 800 000 0000" style={inputStyle} />
+                </div>
               </div>
             </div>
 
@@ -1203,6 +1212,7 @@ const goNext = () => {
                   { label: 'Date', value: selectedDate ? formatDate(selectedDate) : '' },
                   { label: 'Time', value: selectedSlot },
                   { label: 'Guests', value: guests.length === 0 ? 'Just you' : `${guests.length + 1} total (you + ${guests.length})` },
+                  { label: 'Your phone', value: hostPhone || '—' },
                   { label: 'Refreshments', value: selectedRefresh.name },
                   { label: 'Payment', value: bookingMode === 'cash' ? 'Card via Paystack' : bookingMode === 'points' ? 'Points' : 'Complimentary' },
                   { label: 'Purpose', value: SESSION_PURPOSES.find(p => p.id === sessionPurpose)?.label || '—' },
