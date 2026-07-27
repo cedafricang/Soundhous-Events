@@ -669,8 +669,25 @@ const goNext = () => {
   const handleCashPayment = async () => {
     setPaymentError(''); setPaymentLoading(true)
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) { window.location.href = '/login'; return }
+      let token: string | null = localStorage.getItem('accessToken')
+      if (!token) { window.location.href = '/login?redirect=/book'; return }
+      
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (refreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          })
+          const refreshData = await refreshRes.json()
+          if (refreshData.success) {
+          token = refreshData.data.accessToken as string
+            localStorage.setItem('accessToken', token as string)
+            localStorage.setItem('refreshToken', refreshData.data.refreshToken as string)
+          }
+        } catch { /* continue with existing token */ }
+      }
       const res = await fetch(`${API_URL}/api/bookings/cash`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -702,8 +719,25 @@ const goNext = () => {
   const handlePointsRedemption = async () => {
     setPaymentError(''); setPaymentLoading(true)
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) { window.location.href = '/login'; return }
+    let token: string | null = localStorage.getItem('accessToken')
+      if (!token) { window.location.href = '/login?redirect=/book'; return }
+      
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (refreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          })
+          const refreshData = await refreshRes.json()
+          if (refreshData.success) {
+            token = refreshData.data.accessToken as string
+            localStorage.setItem('accessToken', token as string)
+            localStorage.setItem('refreshToken', refreshData.data.refreshToken as string)
+          }
+        } catch { /* continue with existing token */ }
+      }
       const res = await fetch(`${API_URL}/api/bookings/points`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -726,8 +760,25 @@ const goNext = () => {
   const handleComplimentaryBooking = async () => {
     setPaymentError(''); setPaymentLoading(true)
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) { window.location.href = '/login'; return }
+      let token: string | null = localStorage.getItem('accessToken')
+      if (!token) { window.location.href = '/login?redirect=/book'; return }
+      
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (refreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          })
+          const refreshData = await refreshRes.json()
+          if (refreshData.success) {
+            token = refreshData.data.accessToken as string
+            localStorage.setItem('accessToken', token as string)
+            localStorage.setItem('refreshToken', refreshData.data.refreshToken as string)
+          }
+        } catch { /* continue with existing token */ }
+      }
       const res = await fetch(`${API_URL}/api/bookings/complimentary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
