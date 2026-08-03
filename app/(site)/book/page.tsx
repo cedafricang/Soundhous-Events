@@ -966,25 +966,7 @@ const goNext = () => {
       }}
     />
   </div>
-  <div style={{ width: '100%' }}>
-    <label style={labelStyle}>Number of guests</label>
-    <select
-      value={guestCount}
-      onChange={e => setGuestCount(Number(e.target.value))}
-      style={{ 
-        ...inputStyle, 
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box',
-        cursor: 'pointer' 
-      }}
-    >
-      <option value={0} style={{ background: '#1A1610' }}>Just me</option>
-      {Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
-        <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
-      ))}
-    </select>
-  </div>
+  
 </div>
             {selectedDate && (
               <div style={{ marginBottom: '40px' }}>
@@ -1103,6 +1085,23 @@ const goNext = () => {
 
             {/* Host */}
             <div style={{ marginBottom: '32px' }}>
+              <div style={{ marginBottom: 28 }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '14px', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
+                  How many guests are joining you?
+                </p>
+                <select
+                  value={guestCount}
+                  onChange={e => setGuestCount(Number(e.target.value))}
+                  style={{ ...inputStyle, cursor: 'pointer', maxWidth: 280 }}
+                >
+                  {Array.from({ length: (selectedRoom?.capacity || 7) - 1 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n} style={{ background: '#1A1610' }}>{n} guest{n > 1 ? 's' : ''} (+ you)</option>
+                  ))}
+                </select>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.25)', marginTop: 8 }}>
+                  Guest fields below will update automatically.
+                </p>
+              </div>
               <p style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', marginBottom: '14px', fontFamily: 'DM Sans', fontWeight: 600 }}>
                 Your details (host)
               </p>
