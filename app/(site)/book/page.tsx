@@ -528,7 +528,7 @@ export default function BookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [hostName, setHostName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
-  const [hostPhone, setHostPhone] = useState('')
+  const [hostPhone, setHostPhone] = useState('+234 ')
   const [guestCount, setGuestCount] = useState(1)
   const [guests, setGuests] = useState<Guest[]>([])
   const [guestErrors, setGuestErrors] = useState<Record<number, string>>({})
@@ -572,7 +572,7 @@ const minBookingDate = (() => {
         const c = JSON.parse(customerStr)
         setHostName(`${c.firstName} ${c.lastName}`)
         setHostEmail(c.email)
-        setHostPhone(c.phone || '')
+        setHostPhone(c.phone || '+234 ')
       } catch {}
     }
   }, [])
@@ -1115,8 +1115,47 @@ const goNext = () => {
                   <input type="email" value={hostEmail} onChange={e => setHostEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Phone number</label>
-                  <input type="tel" value={hostPhone} onChange={e => setHostPhone(e.target.value)} placeholder="+234 800 000 0000" style={inputStyle} />
+                  <label style={labelStyle}>Phone number <span style={{ color: 'rgba(220,80,80,0.8)' }}>*</span></label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      value={hostPhone.split(' ')[0] || '+234'}
+                      onChange={e => {
+                        const num = hostPhone.split(' ').slice(1).join(' ')
+                        setHostPhone(`${e.target.value} ${num}`)
+                      }}
+                      style={{ ...inputStyle, width: 100, flexShrink: 0, cursor: 'pointer' }}
+                    >
+                      {[
+                        { code: '+234', label: '🇳🇬 +234' },
+                        { code: '+1', label: '🇺🇸 +1' },
+                        { code: '+44', label: '🇬🇧 +44' },
+                        { code: '+233', label: '🇬🇭 +233' },
+                        { code: '+254', label: '🇰🇪 +254' },
+                        { code: '+27', label: '🇿🇦 +27' },
+                        { code: '+971', label: '🇦🇪 +971' },
+                        { code: '+49', label: '🇩🇪 +49' },
+                        { code: '+33', label: '🇫🇷 +33' },
+                      ].map(c => (
+                        <option key={c.code} value={c.code} style={{ background: '#1A1610' }}>{c.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      value={hostPhone.split(' ').slice(1).join(' ')}
+                      onChange={e => {
+                        const code = hostPhone.split(' ')[0] || '+234'
+                        setHostPhone(`${code} ${e.target.value}`)
+                      }}
+                      placeholder="800 000 0000"
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, padding: '10px 12px', border: '1px solid rgba(220,80,80,0.2)', borderRadius: 2, background: 'rgba(220,80,80,0.04)' }}>
+                    <span style={{ color: 'rgba(220,80,80,0.7)', fontSize: 13, flexShrink: 0 }}>⚠</span>
+                    <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.45)', lineHeight: 1.6 }}>
+                      We need a valid number to reach you before your session. Make sure this is a number you answer.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1185,8 +1224,16 @@ const goNext = () => {
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <SecondaryBtn onClick={goPrev}>← Back</SecondaryBtn>
               <PrimaryBtn
-                onClick={() => { if (!hostName.trim() || !isValidEmail(hostEmail)) return; if (validateGuests()) goNext() }}
-                disabled={!hostName.trim() || !isValidEmail(hostEmail)}
+                onClick={() => {
+                  const phoneNum = hostPhone.split(' ').slice(1).join(' ').trim()
+                  if (!hostName.trim() || !isValidEmail(hostEmail) || !phoneNum || phoneNum.length < 6) return
+                  if (validateGuests()) goNext()
+                }}
+                disabled={
+                  !hostName.trim() ||
+                  !isValidEmail(hostEmail) ||
+                  hostPhone.split(' ').slice(1).join(' ').trim().length < 6
+                }
               >
                 Continue →
               </PrimaryBtn>
