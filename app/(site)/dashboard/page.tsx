@@ -787,7 +787,21 @@ const handleAddGuest = async () => {
         )}
 
         {/* Add guest form */}
-        {!loadingBookingDetail && selectedBooking.status !== 'cancelled' && (
+       {!loadingBookingDetail && selectedBooking.status !== 'cancelled' && (() => {
+  const ROOM_CAPACITY: Record<string, number> = {
+    'private-cinema': 7,
+    'hi-fi-room': 5,
+    'media-room': 5,
+  }
+  const maxGuests = (ROOM_CAPACITY[selectedBooking.room] || 5) - 1 // minus the host
+  const guestsFull = bookingGuests.length >= maxGuests
+  return guestsFull ? (
+    <div style={{ marginTop: 16, padding: '14px 16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.01)' }}>
+      <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.35)', lineHeight: 1.6 }}>
+        This room is at full capacity — {maxGuests} guest{maxGuests !== 1 ? 's' : ''} maximum.
+      </p>
+    </div>
+  ) : (
           <div style={{ marginTop: 16, padding: '16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.01)' }}>
             <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Invite a guest</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -807,8 +821,10 @@ const handleAddGuest = async () => {
               {addingGuest ? 'Sending...' : 'Send invite →'}
             </button>
           </div>
-        )}
+  )
+})()}
       </div>
+      
 
       {/* Reschedule */}
       {selectedBooking.rescheduleCount < 2 && selectedBooking.status !== 'cancelled' && (
