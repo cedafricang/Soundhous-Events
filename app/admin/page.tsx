@@ -1429,10 +1429,22 @@ const handleAdminAddGuests = async () => {
           </div>
         ))}
       </div>
-      <button onClick={() => setAdminNewGuests([...adminNewGuests, { fullName: '', email: '' }])}
-        style={{ fontSize: 11, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.05em', marginBottom: 20 }}>
-        + Add another guest
-      </button>
+      {(() => {
+        const ROOM_CAPACITY: Record<string, number> = { 'private-cinema': 7, 'hi-fi-room': 5, 'media-room': 5 }
+        const maxGuests = (ROOM_CAPACITY[selectedBookingDetail.room] || 5) - 1
+        const currentGuests = (selectedBookingDetail.guests?.length || 0) + adminNewGuests.length
+        const atCapacity = currentGuests >= maxGuests
+        return atCapacity ? (
+          <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(245,240,232,0.3)', marginBottom: 20 }}>
+            Room capacity reached — {maxGuests} guest{maxGuests !== 1 ? 's' : ''} maximum.
+          </p>
+        ) : (
+          <button onClick={() => setAdminNewGuests([...adminNewGuests, { fullName: '', email: '' }])}
+            style={{ fontSize: 11, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.05em', marginBottom: 20 }}>
+            + Add another guest
+          </button>
+        )
+      })()}
       {adminGuestsError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12 }}>{adminGuestsError}</p>}
       {adminGuestsSuccess && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', marginBottom: 12 }}>✓ {adminGuestsSuccess}</p>}
       <div style={{ display: 'flex', gap: 10 }}>
