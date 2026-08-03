@@ -596,7 +596,13 @@ const handleAddGuest = async () => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {bookings.slice(0, 3).map((b, i) => <FadeIn key={b.id} delay={i * 60}><BookingRow booking={b} compact /></FadeIn>)}
+                 {bookings.slice(0, 3).map((b, i) => (
+  <FadeIn key={b.id} delay={i * 60}>
+    <div onClick={() => setTab('bookings')} style={{ cursor: 'pointer' }}>
+      <BookingRow booking={b} compact />
+    </div>
+  </FadeIn>
+))}
                 </div>
               )}
             </FadeIn>
