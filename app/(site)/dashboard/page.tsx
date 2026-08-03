@@ -201,7 +201,7 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
   )
 }
 
-function BookingRow({ booking, compact = false, onReschedule }: { booking: Booking; compact?: boolean; onReschedule?: (b: Booking) => void }) {
+function BookingRow({ booking, compact = false, onReschedule, onClick }: { booking: Booking; compact?: boolean; onReschedule?: (b: Booking) => void; onClick?: () => void }) {
   const [hov, setHov] = useState(false)
   const today = new Date()
   const sessionDate = safeDate(booking.bookingDate)
@@ -211,6 +211,7 @@ function BookingRow({ booking, compact = false, onReschedule }: { booking: Booki
 
   return (
     <div
+    onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{ padding: compact ? '16px 0' : '20px 24px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: hov ? 'rgba(197,133,90,0.03)' : 'rgba(255,255,255,0.01)', transition: 'background 0.2s', marginBottom: 10 }}
@@ -260,6 +261,17 @@ function BookingRow({ booking, compact = false, onReschedule }: { booking: Booki
 }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const [bookingDetailModal, setBookingDetailModal] = useState(false)
+const [selectedBooking, setSelectedBooking] = useState<any>(null)
+const [bookingGuests, setBookingGuests] = useState<any[]>([])
+const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
+
+// Add guest form
+const [newGuestName, setNewGuestName] = useState('')
+const [newGuestEmail, setNewGuestEmail] = useState('')
+const [addingGuest, setAddingGuest] = useState(false)
+const [addGuestError, setAddGuestError] = useState('')
+const [addGuestSuccess, setAddGuestSuccess] = useState('')
   const [rescheduleModal, setRescheduleModal] = useState(false)
 const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null)
 const [rescheduleDate, setRescheduleDate] = useState('')
@@ -330,6 +342,49 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
       setLoading(false)
     }
   }
+
+  const fetchBookingDetail = async (booking: Booking) => {
+  setSelectedBooking(booking)
+  setBookingDetailModal(true)
+  setLoadingBookingDetail(true)
+  setBookingGuests([])
+  setAddGuestError('')
+  setAddGuestSuccess('')
+  try {
+    const token = localStorage.getItem('accessToken')
+    const res = await fetch(`${API_URL}/api/bookings/${booking.id}/guests`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.success) setBookingGuests(data.data.guests)
+  } catch { console.error('Failed to load guests') }
+  finally { setLoadingBookingDetail(false) }
+}
+
+const handleAddGuest = async () => {
+  if (!newGuestName.trim() || !newGuestEmail.trim()) { setAddGuestError('Name and email are required.'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newGuestEmail)) { setAddGuestError('Please enter a valid email.'); return }
+  setAddingGuest(true); setAddGuestError(''); setAddGuestSuccess('')
+  try {
+    const token = localStorage.getItem('accessToken')
+    const res = await fetch(`${API_URL}/api/bookings/${selectedBooking.id}/guests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ guests: [{ fullName: newGuestName.trim(), email: newGuestEmail.trim() }] }),
+    })
+    const data = await res.json()
+    if (!data.success) { setAddGuestError(data.message); return }
+    setAddGuestSuccess(`Invite sent to ${newGuestName}.`)
+    setNewGuestName(''); setNewGuestEmail('')
+    // Refresh guests
+    const res2 = await fetch(`${API_URL}/api/bookings/${selectedBooking.id}/guests`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data2 = await res2.json()
+    if (data2.success) setBookingGuests(data2.data.guests)
+  } catch { setAddGuestError('Something went wrong.') }
+  finally { setAddingGuest(false) }
+}
 
   const handleReschedule = async () => {
   if (!rescheduleBooking || !rescheduleDate || !rescheduleSlot) return
@@ -561,7 +616,8 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {bookings.map((b, i) => (
   <FadeIn key={b.id} delay={i * 50}>
-    <BookingRow booking={b} onReschedule={(booking) => {
+    <div onClick={() => fetchBookingDetail(b)} style={{ cursor: 'pointer' }}>
+    <BookingRow booking={b} onClick={() => fetchBookingDetail(b)} onReschedule={(booking) => {
       setRescheduleBooking(booking)
       setRescheduleDate('')
       setRescheduleSlot('')
@@ -569,6 +625,7 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
       setRescheduleSuccess(false)
       setRescheduleModal(true)
     }} />
+    </div>
   </FadeIn>
 ))}
               </div>
@@ -671,6 +728,107 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
       </div>
 
       {/* ── Footer ── */}
+      {/* ── Booking detail modal ── */}
+{bookingDetailModal && selectedBooking && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+    <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 520, boxShadow: '0 32px 80px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <button onClick={() => setBookingDetailModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+
+      {/* Header */}
+      <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 8, fontWeight: 500 }}>Booking details</p>
+      <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: '#F5F0E8', marginBottom: 20 }}>{getRoomName(selectedBooking.room)}</h3>
+
+      {/* Details grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        {[
+          { label: 'Date', value: safeDate(selectedBooking.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) },
+          { label: 'Time', value: selectedBooking.timeSlot },
+          { label: 'Status', value: selectedBooking.status },
+          { label: 'Payment', value: selectedBooking.paymentType },
+          { label: 'Amount', value: selectedBooking.amountPaid > 0 ? formatCurrency(selectedBooking.amountPaid) : selectedBooking.pointsUsed > 0 ? `${selectedBooking.pointsUsed.toLocaleString()} pts` : 'Complimentary' },
+          { label: 'Reschedules left', value: `${Math.max(0, 2 - selectedBooking.rescheduleCount)} of 2` },
+        ].map(row => (
+          <div key={row.label} style={{ padding: '12px 14px', border: '1px solid rgba(197,133,90,0.08)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', marginBottom: 4, fontWeight: 500 }}>{row.label}</p>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#F5F0E8' }}>{row.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Guests */}
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 12, fontWeight: 500 }}>
+          Guests {loadingBookingDetail ? '...' : `(${bookingGuests.length})`}
+        </p>
+        {loadingBookingDetail ? (
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Loading...</p>
+        ) : bookingGuests.length === 0 ? (
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.25)' }}>No guests invited yet.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {bookingGuests.map((g: any) => (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid rgba(197,133,90,0.08)', borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}>
+                <div>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: '#F5F0E8', marginBottom: 2 }}>{g.fullName}</p>
+                  <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(245,240,232,0.35)' }}>{g.email}</p>
+                </div>
+                <span style={{ padding: '3px 8px', fontSize: 10, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderRadius: 2, background: g.rsvpStatus === 'accepted' ? 'rgba(197,133,90,0.08)' : g.rsvpStatus === 'declined' ? 'rgba(220,80,80,0.06)' : 'rgba(255,255,255,0.04)', color: g.rsvpStatus === 'accepted' ? '#C5855A' : g.rsvpStatus === 'declined' ? 'rgba(220,80,80,0.7)' : 'rgba(245,240,232,0.3)', border: `1px solid ${g.rsvpStatus === 'accepted' ? 'rgba(197,133,90,0.25)' : g.rsvpStatus === 'declined' ? 'rgba(220,80,80,0.2)' : 'rgba(255,255,255,0.08)'}` }}>
+                  {g.rsvpStatus}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add guest form */}
+        {!loadingBookingDetail && selectedBooking.status !== 'cancelled' && (
+          <div style={{ marginTop: 16, padding: '16px', border: '1px solid rgba(197,133,90,0.1)', borderRadius: 2, background: 'rgba(255,255,255,0.01)' }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Invite a guest</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <input type="text" value={newGuestName} onChange={e => { setNewGuestName(e.target.value); setAddGuestError(''); setAddGuestSuccess('') }} placeholder="Guest name"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '10px 12px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', width: '100%', boxSizing: 'border-box' as const }}
+                onFocus={e => (e.target.style.borderColor = '#C5855A')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')} />
+              <input type="email" value={newGuestEmail} onChange={e => { setNewGuestEmail(e.target.value); setAddGuestError(''); setAddGuestSuccess('') }} placeholder="Guest email"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '10px 12px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', width: '100%', boxSizing: 'border-box' as const }}
+                onFocus={e => (e.target.style.borderColor = '#C5855A')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(197,133,90,0.18)')} />
+            </div>
+            {addGuestError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 8 }}>{addGuestError}</p>}
+            {addGuestSuccess && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', marginBottom: 8 }}>✓ {addGuestSuccess}</p>}
+            <button onClick={handleAddGuest} disabled={addingGuest}
+              style={{ padding: '10px 20px', background: addingGuest ? 'rgba(197,133,90,0.4)' : '#C5855A', border: 'none', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, color: '#0E0C0A', cursor: addingGuest ? 'not-allowed' : 'pointer' }}>
+              {addingGuest ? 'Sending...' : 'Send invite →'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Reschedule */}
+      {selectedBooking.rescheduleCount < 2 && selectedBooking.status !== 'cancelled' && (
+        <div>
+          <div style={{ height: 1, background: 'rgba(197,133,90,0.1)', marginBottom: 20 }} />
+          <button
+            onClick={() => {
+              setBookingDetailModal(false)
+              setRescheduleBooking(selectedBooking)
+              setRescheduleDate('')
+              setRescheduleSlot('')
+              setRescheduleError('')
+              setRescheduleSuccess(false)
+              setRescheduleModal(true)
+            }}
+            style={{ width: '100%', padding: '13px', background: 'transparent', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500, color: 'rgba(245,240,232,0.45)', cursor: 'pointer', transition: 'all 0.2s' }}
+            onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = '#C5855A'; (e.target as HTMLElement).style.color = '#C5855A' }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(197,133,90,0.2)'; (e.target as HTMLElement).style.color = 'rgba(245,240,232,0.45)' }}
+          >
+            Reschedule this booking →
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
       <div style={{ marginTop: '80px', padding: '32px clamp(20px, 5vw, 48px)', borderTop: '1px solid rgba(197,133,90,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>© 2026 Soundhous · 17 Adeyemo Alakija Street, Victoria Island, Lagos</p>
         <p style={{ fontSize: '11px', color: 'rgba(245,240,232,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.05em' }}>reserve.soundhous.com</p>
@@ -774,3 +932,4 @@ const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
     </div>
   )
 }
+
