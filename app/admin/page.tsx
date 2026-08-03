@@ -12,6 +12,7 @@ const ROOMS = [
   { id: 'media-room', name: 'Media Room', price: 450000 },
 ]
 
+
 const NAV_ITEMS: { id: AdminTab; label: string; iconPath: string }[] = [
   { id: 'overview', label: 'Overview', iconPath: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z' },
   { id: 'bookings', label: 'Bookings', iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
@@ -534,6 +535,18 @@ const [ticketFilter, setTicketFilter] = useState('all')
   const [bookingDetailModal, setBookingDetailModal] = useState(false)
 const [selectedBookingDetail, setSelectedBookingDetail] = useState<any>(null)
 const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
+const [adminRescheduleModal, setAdminRescheduleModal] = useState(false)
+const [adminGuestsModal, setAdminGuestsModal] = useState(false)
+const [adminRescheduleDate, setAdminRescheduleDate] = useState('')
+const [adminRescheduleSlot, setAdminRescheduleSlot] = useState('')
+const [adminRescheduleSlots, setAdminRescheduleSlots] = useState<{ time: string; available: boolean }[]>([])
+const [adminRescheduleLoading, setAdminRescheduleLoading] = useState(false)
+const [adminRescheduleError, setAdminRescheduleError] = useState('')
+const [adminRescheduleSuccess, setAdminRescheduleSuccess] = useState(false)
+const [adminNewGuests, setAdminNewGuests] = useState([{ fullName: '', email: '' }])
+const [adminGuestsLoading, setAdminGuestsLoading] = useState(false)
+const [adminGuestsError, setAdminGuestsError] = useState('')
+const [adminGuestsSuccess, setAdminGuestsSuccess] = useState('')
 
   // Modals
   const [adjustModal, setAdjustModal] = useState(false)
@@ -563,6 +576,17 @@ const [loadingBookingDetail, setLoadingBookingDetail] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [guestFilter, setGuestFilter] = useState('All')
   const [guestSearch, setGuestSearch] = useState('')
+
+  useEffect(() => {
+  if (!adminRescheduleModal || !selectedBookingDetail || !adminRescheduleDate) {
+    setAdminRescheduleSlots([])
+    return
+  }
+  fetch(`${API_URL}/api/bookings/availability?room=${selectedBookingDetail.room}&date=${adminRescheduleDate}`)
+    .then(res => res.json())
+    .then(data => { if (data.success) setAdminRescheduleSlots(data.data.slots) })
+    .catch(() => {})
+}, [adminRescheduleModal, selectedBookingDetail, adminRescheduleDate])
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -681,6 +705,40 @@ const fetchTickets = async (filter = 'all') => {
       URL.revokeObjectURL(url)
     } catch { console.error('Export failed') }
   }
+
+  const handleAdminReschedule = async () => {
+  if (!selectedBookingDetail || !adminRescheduleDate || !adminRescheduleSlot) return
+  setAdminRescheduleLoading(true); setAdminRescheduleError('')
+  try {
+    const res = await fetch(`${API_URL}/api/admin/bookings/${selectedBookingDetail.id}/reschedule`, {
+      method: 'PATCH', headers: authHeaders(),
+      body: JSON.stringify({ newDate: adminRescheduleDate, newTimeSlot: adminRescheduleSlot }),
+    })
+    const data = await res.json()
+    if (!data.success) { setAdminRescheduleError(data.message); return }
+    setAdminRescheduleSuccess(true)
+    setBookings([])
+    setTimeout(() => fetchBookings(), 500)
+  } catch { setAdminRescheduleError('Something went wrong.') }
+  finally { setAdminRescheduleLoading(false) }
+}
+
+const handleAdminAddGuests = async () => {
+  const valid = adminNewGuests.filter(g => g.fullName.trim() && g.email.trim())
+  if (valid.length === 0) { setAdminGuestsError('Please enter at least one guest.'); return }
+  setAdminGuestsLoading(true); setAdminGuestsError('')
+  try {
+    const res = await fetch(`${API_URL}/api/admin/bookings/${selectedBookingDetail.id}/guests`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ guests: valid }),
+    })
+    const data = await res.json()
+    if (!data.success) { setAdminGuestsError(data.message); return }
+    setAdminGuestsSuccess(`${valid.length} guest(s) invited successfully.`)
+    setAdminNewGuests([{ fullName: '', email: '' }])
+  } catch { setAdminGuestsError('Something went wrong.') }
+  finally { setAdminGuestsLoading(false) }
+}
 
   const handleAdjustPoints = async () => {
     if (!selectedCustomer || !pointsAmount || !pointsReason) return
@@ -1274,10 +1332,115 @@ const fetchTickets = async (filter = 'all') => {
           {selectedBookingDetail.guests.length === 0 && (
             <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No guests invited for this booking.</p>
           )}
+          {/* Admin actions */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(197,133,90,0.1)' }}>
+                <button
+                  onClick={() => { setAdminRescheduleModal(true); setAdminRescheduleDate(''); setAdminRescheduleSlot(''); setAdminRescheduleError(''); setAdminRescheduleSuccess(false) }}
+                  style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid rgba(197,133,90,0.25)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, color: 'rgba(245,240,232,0.5)', cursor: 'pointer' }}
+                >
+                  Reschedule booking
+                </button>
+                <button
+                  onClick={() => { setAdminGuestsModal(true); setAdminNewGuests([{ fullName: '', email: '' }]); setAdminGuestsError(''); setAdminGuestsSuccess('') }}
+                  style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid rgba(197,133,90,0.25)', borderRadius: 2, fontSize: 11, fontFamily: 'DM Sans', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, color: 'rgba(245,240,232,0.5)', cursor: 'pointer' }}
+                >
+                  Add guests
+                </button>
+              </div>
         </>
+        
       ) : (
         <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>Failed to load booking details.</p>
       )}
+    </div>
+  </div>
+  
+)}
+{/* Admin reschedule modal */}
+{adminRescheduleModal && selectedBookingDetail && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 24 }}>
+    <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 440, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <button onClick={() => setAdminRescheduleModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+      {!adminRescheduleSuccess ? (
+        <>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Reschedule booking</p>
+          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 6 }}>{getRoomName(selectedBookingDetail.room)}</h3>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.4)', marginBottom: 24 }}>
+            Currently: {safeDate(selectedBookingDetail.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · {selectedBookingDetail.timeSlot}
+          </p>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 8, fontWeight: 500 }}>New date</label>
+            <input type="date" value={adminRescheduleDate} onChange={e => { setAdminRescheduleDate(e.target.value); setAdminRescheduleSlot('') }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: '12px 14px', fontSize: 14, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', boxSizing: 'border-box' as const, colorScheme: 'dark' }} />
+          </div>
+          {adminRescheduleDate && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.35)', marginBottom: 12, fontWeight: 500 }}>Available slots</label>
+              {adminRescheduleSlots.length === 0 ? (
+                <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.3)' }}>No slots available.</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {adminRescheduleSlots.map(slot => (
+                    <button key={slot.time} disabled={!slot.available} onClick={() => slot.available && setAdminRescheduleSlot(slot.time)}
+                      style={{ padding: '10px 18px', fontSize: 13, fontFamily: 'DM Sans', cursor: slot.available ? 'pointer' : 'not-allowed', border: adminRescheduleSlot === slot.time ? '1px solid #C5855A' : !slot.available ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(197,133,90,0.18)', borderRadius: 2, background: adminRescheduleSlot === slot.time ? '#C5855A' : 'transparent', color: adminRescheduleSlot === slot.time ? '#0E0C0A' : !slot.available ? 'rgba(245,240,232,0.15)' : 'rgba(245,240,232,0.6)', outline: 'none' }}>
+                      {slot.time}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {adminRescheduleError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12 }}>{adminRescheduleError}</p>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <GhostBtn full onClick={() => setAdminRescheduleModal(false)}>Cancel</GhostBtn>
+            <PrimaryBtn full onClick={handleAdminReschedule} disabled={adminRescheduleLoading || !adminRescheduleDate || !adminRescheduleSlot}>
+              {adminRescheduleLoading ? 'Rescheduling...' : 'Confirm reschedule'}
+            </PrimaryBtn>
+          </div>
+        </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 10 }}>Booking rescheduled.</h3>
+          <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(245,240,232,0.45)', marginBottom: 20 }}>Host and accepted guests have been notified.</p>
+          <PrimaryBtn onClick={() => { setAdminRescheduleModal(false); setBookingDetailModal(false) }}>Done</PrimaryBtn>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+{/* Admin add guests modal */}
+{adminGuestsModal && selectedBookingDetail && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 24 }}>
+    <div style={{ position: 'relative', background: '#131109', border: '1px solid rgba(197,133,90,0.2)', borderRadius: 2, padding: 32, width: '100%', maxWidth: 480, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <button onClick={() => setAdminGuestsModal(false)} style={{ position: 'absolute', top: 0, right: 0, padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(245,240,232,0.3)', fontSize: 20 }}>×</button>
+      <p style={{ fontFamily: 'DM Sans', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#C5855A', marginBottom: 12, fontWeight: 500 }}>Add guests</p>
+      <h3 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 400, color: '#F5F0E8', marginBottom: 20 }}>{getRoomName(selectedBookingDetail.room)}</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {adminNewGuests.map((g, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+            <input type="text" value={g.fullName} onChange={e => { const updated = [...adminNewGuests]; updated[i].fullName = e.target.value; setAdminNewGuests(updated) }} placeholder="Guest name"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', boxSizing: 'border-box' as const }} />
+            <input type="email" value={g.email} onChange={e => { const updated = [...adminNewGuests]; updated[i].email = e.target.value; setAdminNewGuests(updated) }} placeholder="Guest email"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(197,133,90,0.18)', borderRadius: 2, padding: '11px 14px', fontSize: 13, color: '#F5F0E8', fontFamily: 'DM Sans', outline: 'none', boxSizing: 'border-box' as const }} />
+            <button onClick={() => setAdminNewGuests(adminNewGuests.filter((_, j) => j !== i))}
+              style={{ padding: '11px 14px', background: 'transparent', border: '1px solid rgba(220,80,80,0.2)', borderRadius: 2, color: 'rgba(220,80,80,0.6)', cursor: 'pointer', fontSize: 12 }}>✕</button>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setAdminNewGuests([...adminNewGuests, { fullName: '', email: '' }])}
+        style={{ fontSize: 11, color: '#C5855A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', letterSpacing: '0.05em', marginBottom: 20 }}>
+        + Add another guest
+      </button>
+      {adminGuestsError && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(220,80,80,0.8)', marginBottom: 12 }}>{adminGuestsError}</p>}
+      {adminGuestsSuccess && <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#C5855A', marginBottom: 12 }}>✓ {adminGuestsSuccess}</p>}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <GhostBtn full onClick={() => setAdminGuestsModal(false)}>Cancel</GhostBtn>
+        <PrimaryBtn full onClick={handleAdminAddGuests} disabled={adminGuestsLoading}>
+          {adminGuestsLoading ? 'Sending...' : 'Send invites'}
+        </PrimaryBtn>
+      </div>
     </div>
   </div>
 )}
